@@ -1,0 +1,33 @@
+{
+  "name": "hexo-site",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "hexo generate",
+    "clean": "hexo clean",
+    "deploy": "hexo deploy",
+    "server": "hexo server",
+    "hexo:watch": "hexo server --watch",
+    "bs:proxy": "browser-sync start --proxy http://localhost:4000 --files public/**/* --reload-delay 200 --no-open",
+    "dev": "npm-run-all --parallel hexo:watch bs:proxy"
+  },
+  "hexo": {
+    "version": "8.1.1"
+  },
+  "dependencies": {
+    "hexo": "^8.0.0",
+    "hexo-generator-archive": "^2.0.0",
+    "hexo-generator-category": "^2.0.0",
+    "hexo-generator-index": "^4.0.0",
+    "hexo-generator-tag": "^2.0.0",
+    "hexo-renderer-ejs": "^2.0.0",
+    "hexo-renderer-marked": "^7.0.0",
+    "hexo-renderer-stylus": "^3.0.1",
+    "hexo-server": "^3.0.0",
+    "hexo-theme-landscape": "^1.0.0"
+  },
+  "devDependencies": {
+    "browser-sync": "^3.0.4",
+    "npm-run-all": "^4.1.5"
+  }
+}
