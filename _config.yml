@@ -102,5 +102,5 @@ theme: next
 ## Docs: https://hexo.io/docs/one-command-deployment
 deploy:
   type: git
-  repo: https://github.com/RattanOnly/RattanOnly.git
+  repo: git@github.com:RattanOnly/RattanOnly.git
   branch: main
