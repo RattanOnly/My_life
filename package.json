@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "hexo generate",
-    "clean": "hexo clean",
-    "deploy": "hexo deploy",
-    "server": "hexo server",
-    "hexo:watch": "hexo server --watch",
+    "build": "./tools/hexo-env.sh generate",
+    "clean": "./tools/hexo-env.sh clean",
+    "deploy": "./tools/hexo-env.sh deploy",
+    "server": "./tools/hexo-env.sh server",
+    "hexo:watch": "./tools/hexo-env.sh server --watch",
     "bs:proxy": "browser-sync start --proxy http://localhost:4000 --files public/**/* --reload-delay 200 --no-open",
+    "predev": "./tools/hexo-env.sh clean && ./tools/hexo-env.sh generate && ./tools/hexo-env.sh algolia",
     "dev": "npm-run-all --parallel hexo:watch bs:proxy"
   },
   "hexo": {
@@ -16,10 +17,12 @@
   },
   "dependencies": {
     "hexo": "^8.0.0",
+    "hexo-algoliasearch": "^2.0.1",
     "hexo-deployer-git": "^4.0.0",
     "hexo-generator-archive": "^2.0.0",
     "hexo-generator-category": "^2.0.0",
     "hexo-generator-index": "^4.0.0",
+    "hexo-generator-searchdb": "^1.5.0",
     "hexo-generator-tag": "^2.0.0",
     "hexo-renderer-ejs": "^2.0.0",
     "hexo-renderer-marked": "^7.0.0",

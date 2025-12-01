@@ -104,3 +104,29 @@ deploy:
   type: git
   repo: git@github.com:RattanOnly/RattanOnly.git
   branch: main
+
+# Search data for local search popup.
+# Requires `hexo-generator-searchdb`.
+search:
+  path: search.xml
+  field: post
+  content: true
+
+# Algolia index settings (Search-Only key for frontend usage).
+# Values can be injected at runtime via ALGOLIA_APP_ID / ALGOLIA_INDEX_NAME / ALGOLIA_SEARCH_KEY.
+# Remember to export HEXO_ALGOLIA_INDEXING_KEY and run `npx hexo algolia` after `hexo g`.
+algolia:
+  applicationID: YOUR_APP_ID
+  appId: YOUR_APP_ID
+  apiKey: YOUR_SEARCH_ONLY_API_KEY
+  adminApiKey: YOUR_ADMIN_API_KEY
+  indexName: YOUR_INDEX_NAME
+  chunkSize: 5000
+  fields:
+    - title
+    - slug
+    - path
+    - categories
+    - tags
+    - excerpt:strip
+    - content:strip
