@@ -16,13 +16,13 @@
   text-transform: none;
 }
 
-// Limit post image width on larger screens.
+// Limit post image height (and width on larger screens).
 .post-body img {
   height: auto;
   // Fallback (older browsers): images never exceed viewport height.
   max-height: 70vh;
   // Modern browsers: additionally cap absolute height.
-  max-height: min(70vh, 520px);
+  max-height: unquote('min(70vh, 520px)');
 }
 
 @media (min-width: 768px) {
