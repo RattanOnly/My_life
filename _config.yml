@@ -130,3 +130,15 @@ algolia:
     - tags
     - excerpt:strip
     - content:strip
+
+# Background video (set enable to false to disable without removing code).
+background_video:
+  enable: true
+  src: /video/Christmas.mp4
+  poster:
+  overlay: 'linear-gradient(180deg, rgba(4, 6, 8, 0.12) 0%, rgba(4, 6, 8, 0.05) 36%, rgba(4, 6, 8, 0.12) 100%)'
+  muted: true
+  autoplay: true
+  loop: true
+  disable_on_mobile: true
+  disable_on_reduced_motion: true
