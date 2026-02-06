@@ -5,7 +5,7 @@
 <script src="/js/background-video.js"></script>
 {% endif %}
 <script src="/js/theme-effects.js"></script>
-<audio id="site-bgm" src="/music/Chrismas.mp3" preload="auto" loop style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"></audio>
+<audio id="site-bgm" src="/music/bgm.mp3" preload="auto" loop style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"></audio>
 <script>
 (() => {
   const themeEl = document.getElementById('site-bgm');
