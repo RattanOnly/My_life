@@ -31,34 +31,7 @@
   }
 }
 
-// Force dark palette regardless of prefers-color-scheme to keep the site in dark mode.
-:root {
-  // Darken the overall canvas; keep text colors inherited from NexT's dark palette.
-  --body-bg-color: #040608;
-  --content-bg-color: #080b10;
-  --card-bg-color: #0a0f15;
-  --text-color: $text-color-dark;
-  --blockquote-color: $blockquote-color-dark;
-  --link-color: $link-color-dark;
-  --link-hover-color: $link-hover-color-dark;
-  --brand-color: $brand-color-dark;
-  --brand-hover-color: $brand-hover-color-dark;
-  --table-row-odd-bg-color: $table-row-odd-bg-color-dark;
-  --table-row-hover-bg-color: $table-row-hover-bg-color-dark;
-  --menu-item-bg-color: $menu-item-bg-color-dark;
-  --btn-default-bg: $btn-default-bg-dark;
-  --btn-default-color: $btn-default-color-dark;
-  --btn-default-border-color: $btn-default-border-color-dark;
-  --btn-default-hover-bg: $btn-default-hover-bg-dark;
-  --btn-default-hover-color: $btn-default-hover-color-dark;
-  --btn-default-hover-border-color: $btn-default-hover-border-color-dark;
-}
-
-html,
-body {
-  background: var(--body-bg-color);
-  color: var(--text-color);
-}
+// Keep theme brightness aligned with NexT defaults.
 
 .background-video-layer {
   position: fixed;
@@ -66,7 +39,7 @@ body {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  background: var(--body-bg-color);
+  background: transparent;
 }
 
 .background-video-layer video {
