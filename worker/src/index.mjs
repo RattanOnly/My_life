@@ -10,6 +10,9 @@ const VISITOR_LOG_RETENTION_DAYS = 90;
 const ONLINE_VISITOR_WINDOW_MINUTES = 3;
 const MAX_VISITED_PAGE_LENGTH = 512;
 const MAX_DEVICE_SUMMARY_LENGTH = 80;
+const MAX_COMMENT_NAME_LENGTH = 80;
+const MAX_COMMENT_EMAIL_LENGTH = 160;
+const MAX_COMMENT_BODY_LENGTH = 2000;
 
 function requireVisitorDb(env) {
   if (!env?.VISITOR_DB) {
@@ -85,6 +88,29 @@ function normalizeVisitedPage(path) {
 
   const visitedPage = `${parsed.pathname}${parsed.search}`;
   return visitedPage.slice(0, MAX_VISITED_PAGE_LENGTH);
+}
+
+function normalizeArticlePath(path) {
+  if (typeof path !== 'string' || path.trim() === '') {
+    return '';
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(path, 'https://blog.local');
+  } catch {
+    return '';
+  }
+
+  return parsed.pathname.slice(0, MAX_VISITED_PAGE_LENGTH);
+}
+
+function cleanText(value, maxLength) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim().slice(0, maxLength);
 }
 
 function summarizeBrowser(userAgent) {
@@ -171,6 +197,85 @@ async function handleOnlineCount(env, now = new Date()) {
   return json({ count: Number(row?.count || 0) });
 }
 
+function publicComment(row) {
+  return {
+    id: Number(row.id),
+    name: row.comment_name,
+    body: row.comment_body,
+    createdAt: row.created_at
+  };
+}
+
+async function handleListComments(request, env) {
+  const db = requireVisitorDb(env);
+  const url = new URL(request.url);
+  const articlePath = normalizeArticlePath(url.searchParams.get('path'));
+
+  if (!articlePath) {
+    return json({ error: 'Article path is required' }, { status: 400 });
+  }
+
+  const result = await db.prepare(`
+    SELECT id, comment_name, comment_body, created_at
+    FROM article_comments
+    WHERE article_path = ?1
+    ORDER BY created_at ASC, id ASC
+    LIMIT 100
+  `).bind(articlePath).all();
+
+  return json({
+    comments: (result.results || []).map(publicComment)
+  });
+}
+
+async function handleCreateComment(request, env) {
+  const db = requireVisitorDb(env);
+  const body = await readJson(request);
+  const articlePath = normalizeArticlePath(body.path);
+  const commentName = cleanText(body.name, MAX_COMMENT_NAME_LENGTH);
+  const commentEmail = cleanText(body.email, MAX_COMMENT_EMAIL_LENGTH) || null;
+  const commentBody = cleanText(body.body, MAX_COMMENT_BODY_LENGTH);
+  const createdAt = new Date().toISOString();
+
+  if (!articlePath) {
+    return json({ error: 'Article path is required' }, { status: 400 });
+  }
+
+  if (!commentName) {
+    return json({ error: 'Comment Name is required' }, { status: 400 });
+  }
+
+  if (!commentBody) {
+    return json({ error: 'Comment body is required' }, { status: 400 });
+  }
+
+  const result = await db.prepare(`
+    INSERT INTO article_comments (
+      article_path,
+      comment_name,
+      comment_email,
+      comment_body,
+      created_at
+    )
+    VALUES (?1, ?2, ?3, ?4, ?5)
+  `).bind(
+    articlePath,
+    commentName,
+    commentEmail,
+    commentBody,
+    createdAt
+  ).run();
+
+  return json({
+    comment: {
+      id: Number(result.meta?.last_row_id || 0),
+      name: commentName,
+      body: commentBody,
+      createdAt
+    }
+  }, { status: 201 });
+}
+
 async function cleanupVisitorLogs(env, now = new Date()) {
   const db = requireVisitorDb(env);
   const cutoff = new Date(now.getTime() - VISITOR_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
@@ -199,6 +304,14 @@ export default {
 
     if (request.method === 'GET' && url.pathname === '/online-count') {
       return handleOnlineCount(env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/comments') {
+      return handleListComments(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/comments') {
+      return handleCreateComment(request, env);
     }
 
     return json({ error: 'Not found' }, { status: 404 });
