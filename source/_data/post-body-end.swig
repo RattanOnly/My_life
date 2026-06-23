@@ -33,5 +33,4 @@
     <p class="article-comments-status" data-comments-status></p>
   </form>
 </section>
-<script src="/js/article-comments.js"></script>
 {% endif %}

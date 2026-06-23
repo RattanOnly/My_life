@@ -12,12 +12,21 @@ test('post body hook renders an Article Comment Area only for posts', async () =
   assert.match(template, /name="email"/);
   assert.doesNotMatch(template, /name="email"[^>]*required/);
   assert.match(template, /name="body"[^>]*required/);
-  assert.match(template, /\/js\/article-comments\.js/);
+  assert.doesNotMatch(template, /\/js\/article-comments\.js/);
+});
+
+test('footer loads the Article Comment Area script for direct and PJAX navigation', async () => {
+  const footer = await readFile(new URL('../source/_data/footer.swig', import.meta.url), 'utf8');
+
+  assert.match(footer, /\/js\/article-comments\.js/);
 });
 
 test('article comments script loads, submits, and renders comments safely', async () => {
   const script = await readFile(new URL('../source/js/article-comments.js', import.meta.url), 'utf8');
 
+  assert.match(script, /initArticleComments/);
+  assert.match(script, /pjax:success/);
+  assert.match(script, /dataset\.initialized\s*===\s*'true'/);
   assert.match(script, /fetch\(commentsUrl/);
   assert.match(script, /method:\s*'POST'/);
   assert.match(script, /window\.location\.pathname/);
