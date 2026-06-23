@@ -90,6 +90,16 @@ body.has-background-video {
   }
 }
 
+.visitor-online-count {
+  color: var(--text-color);
+  font-size: 0.9em;
+  line-height: 1.8;
+}
+
+.visitor-online-count[data-status='unavailable'] {
+  opacity: 0.65;
+}
+
 // Visual effect themes (currently snow). Additional themes can be added alongside snow without touching existing markup.
 .site-effect {
   position: fixed;

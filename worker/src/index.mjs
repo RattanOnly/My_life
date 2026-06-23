@@ -7,6 +7,7 @@ const json = (body, init = {}) => new Response(JSON.stringify(body), {
 });
 
 const VISITOR_LOG_RETENTION_DAYS = 90;
+const ONLINE_VISITOR_WINDOW_MINUTES = 3;
 const MAX_VISITED_PAGE_LENGTH = 512;
 const MAX_DEVICE_SUMMARY_LENGTH = 80;
 
@@ -52,6 +53,22 @@ function getVisitorIp(request) {
   return request.headers.get('cf-connecting-ip')
     || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || 'unknown';
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+
+  return [...new Uint8Array(digest)]
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function getVisitorKey(request) {
+  return sha256Hex([
+    getVisitorIp(request),
+    request.headers.get('user-agent') || 'unknown'
+  ].join('|'));
 }
 
 function normalizeVisitedPage(path) {
@@ -124,6 +141,36 @@ async function handleVisit(request, env) {
   return new Response(null, { status: 204 });
 }
 
+async function handlePresence(request, env) {
+  const db = requireVisitorDb(env);
+  const visitorKey = await getVisitorKey(request);
+  const lastSeenAt = new Date().toISOString();
+
+  await db.prepare(`
+    INSERT INTO visitor_presence (
+      visitor_key,
+      last_seen_at
+    )
+    VALUES (?1, ?2)
+    ON CONFLICT(visitor_key) DO UPDATE SET
+      last_seen_at = excluded.last_seen_at
+  `).bind(visitorKey, lastSeenAt).run();
+
+  return new Response(null, { status: 204 });
+}
+
+async function handleOnlineCount(env, now = new Date()) {
+  const db = requireVisitorDb(env);
+  const activeSince = new Date(now.getTime() - ONLINE_VISITOR_WINDOW_MINUTES * 60 * 1000);
+  const row = await db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM visitor_presence
+    WHERE last_seen_at >= ?1
+  `).bind(activeSince.toISOString()).first();
+
+  return json({ count: Number(row?.count || 0) });
+}
+
 async function cleanupVisitorLogs(env, now = new Date()) {
   const db = requireVisitorDb(env);
   const cutoff = new Date(now.getTime() - VISITOR_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
@@ -144,6 +191,14 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/visits') {
       return handleVisit(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/presence') {
+      return handlePresence(request, env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/online-count') {
+      return handleOnlineCount(env);
     }
 
     return json({ error: 'Not found' }, { status: 404 });

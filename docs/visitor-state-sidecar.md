@@ -80,3 +80,31 @@ Visitor Logs are private. Public requests can write a Visitor Log through `POST 
 Visitor Log Retention is 90 days. `worker/wrangler.toml` configures a daily scheduled Worker trigger that deletes `visitor_logs` rows with `visited_at` older than the retention cutoff.
 
 This keeps regular visits to one D1 write each. Retention cleanup runs separately so page visits do not also perform cleanup queries.
+
+## Online Visitor Count
+
+The public heartbeat endpoint is:
+
+```text
+POST /presence
+```
+
+It updates the Visitor's current presence without writing to permanent Visitor Logs.
+
+The public count endpoint is:
+
+```text
+GET /online-count
+```
+
+Response body:
+
+```json
+{
+  "count": 1
+}
+```
+
+The count is calculated from recent presence rows and returns only the Online Visitor Count. It does not expose IP addresses, Visitor Logs, or individual Visitor records.
+
+The static blog footer contains a Footer Online Count container and loads `/js/visitor-online.js`. The client sends a conservative heartbeat every 60 seconds and keeps the page readable if the sidecar is unavailable.
