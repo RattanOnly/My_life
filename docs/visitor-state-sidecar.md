@@ -108,3 +108,49 @@ Response body:
 The count is calculated from recent presence rows and returns only the Online Visitor Count. It does not expose IP addresses, Visitor Logs, or individual Visitor records.
 
 The static blog footer contains a Footer Online Count container and loads `/js/visitor-online.js`. The client sends a conservative heartbeat every 60 seconds and keeps the page readable if the sidecar is unavailable.
+
+## Article Comments
+
+Article pages include an Article Comment Area at the bottom of the post body and load `/js/article-comments.js`. Homepage, archive, tag, category, and general pages do not render this container.
+
+The public read endpoint is:
+
+```text
+GET /comments?path=/2026/06/05/example-post/
+```
+
+Response body:
+
+```json
+{
+  "comments": [
+    {
+      "id": 1,
+      "name": "Visitor",
+      "body": "A Published Comment.",
+      "createdAt": "2026-06-23T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+The public write endpoint is:
+
+```text
+POST /comments
+```
+
+Request body:
+
+```json
+{
+  "path": "/2026/06/05/example-post/",
+  "name": "Visitor",
+  "email": "visitor@example.com",
+  "body": "A Published Comment."
+}
+```
+
+`name` and `body` are required. `email` is optional and stored only as a private owner-facing contact field for future admin views. Public comment reads never return Comment Email.
+
+Anonymous Comments become Published Comments immediately. The first version intentionally does not add external account login, GitHub-based commenting, CAPTCHA, Turnstile, or manual moderation. If the sidecar is unavailable, the article remains readable and the comment area shows a visible failure state.

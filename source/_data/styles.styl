@@ -602,3 +602,87 @@ body.has-background-video {
   animation: snowfall 14s linear infinite;
   animation-delay: -9s;
 }
+
+.article-comments {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border, #eee);
+}
+
+.article-comments-title {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+}
+
+.article-comments-list {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.article-comment {
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--color-border, #eee);
+}
+
+.article-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: baseline;
+  font-size: 0.9rem;
+}
+
+.article-comment-meta time,
+.article-comments-empty,
+.article-comments-status {
+  color: var(--text-color-secondary, #777);
+}
+
+.article-comment p {
+  margin: 0.45rem 0 0;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.article-comments-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.article-comments-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.article-comments-form input,
+.article-comments-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 6px;
+  background: var(--content-bg-color, #fff);
+  color: var(--text-color, #333);
+  font: inherit;
+}
+
+.article-comments-form button {
+  justify-self: start;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--link-color, #555);
+  color: #fff;
+  cursor: pointer;
+}
+
+.article-comments-status {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.article-comments[data-status='unavailable'] .article-comments-status {
+  color: #a33;
+}
