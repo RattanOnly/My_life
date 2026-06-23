@@ -3,6 +3,9 @@ main = "src/index.mjs"
 compatibility_date = "2026-06-23"
 workers_dev = true
 
+[triggers]
+crons = ["17 3 * * *"]
+
 [[d1_databases]]
 binding = "VISITOR_DB"
 database_name = "my-life-visitor-state"
