@@ -140,6 +140,67 @@ test('GET /comments returns Published Comments for one article without private e
   assert.deepEqual(db.calls[0].values, ['/2026/06/05/example-post/']);
 });
 
+test('GET /admin-comments fails closed without a valid Admin Password', async () => {
+  const env = { VISITOR_DB: createCommentDb(), ADMIN_PASSWORD: 'secret-pass' };
+
+  const missing = await worker.fetch(new Request('https://visitor.example.com/admin-comments'), env);
+  assert.equal(missing.status, 401);
+  assert.deepEqual(await missing.json(), { error: 'Unauthorized' });
+
+  const invalid = await worker.fetch(new Request('https://visitor.example.com/admin-comments', {
+    headers: { authorization: 'Bearer wrong-pass' }
+  }), env);
+  assert.equal(invalid.status, 401);
+  assert.deepEqual(await invalid.json(), { error: 'Unauthorized' });
+});
+
+test('GET /admin-comments returns private comment details for the owner', async () => {
+  const db = createCommentDb([[
+    {
+      id: 11,
+      article_path: '/2026/06/05/example-post/',
+      comment_name: '家人',
+      comment_email: 'private@example.com',
+      comment_body: '我也看到了。',
+      created_at: '2026-06-23T12:00:00.000Z'
+    }
+  ]]);
+
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-comments', {
+    headers: { authorization: 'Bearer secret-pass' }
+  }), { VISITOR_DB: db, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    comments: [{
+      id: 11,
+      articlePath: '/2026/06/05/example-post/',
+      name: '家人',
+      email: 'private@example.com',
+      body: '我也看到了。',
+      createdAt: '2026-06-23T12:00:00.000Z'
+    }]
+  });
+});
+
+test('DELETE /admin-comments/:id deletes one comment only for the owner', async () => {
+  const unauthorized = await worker.fetch(new Request('https://visitor.example.com/admin-comments/11', {
+    method: 'DELETE'
+  }), { VISITOR_DB: createCommentDb(), ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(unauthorized.status, 401);
+
+  const db = createCommentDb();
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-comments/11', {
+    method: 'DELETE',
+    headers: { authorization: 'Bearer secret-pass' }
+  }), { VISITOR_DB: db, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(response.status, 204);
+  assert.match(db.calls[0].sql, /DELETE FROM article_comments/i);
+  assert.deepEqual(db.calls[0].values, [11]);
+});
+
 test('article comments migration creates the Published Comment table', async () => {
   const migration = await readFile(
     new URL('../migrations/0004_article_comments.sql', import.meta.url),

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import worker from '../src/index.mjs';
 
-function createRecordingDb() {
+function createRecordingDb(firstResults = []) {
   const calls = [];
 
   return {
@@ -22,9 +22,13 @@ function createRecordingDb() {
           call.ran = true;
           return { success: true };
         },
+        async all() {
+          call.all = true;
+          return { results: firstResults.shift() || [] };
+        },
         async first() {
           call.first = true;
-          return { ok: 1 };
+          return firstResults.shift() || { ok: 1 };
         }
       };
     }
@@ -73,6 +77,49 @@ test('GET /visits does not expose Visitor Logs through a public endpoint', async
 
   assert.equal(response.status, 404);
   assert.deepEqual(await response.json(), { error: 'Not found' });
+});
+
+test('GET /admin-data fails closed without a valid Admin Password', async () => {
+  const env = { VISITOR_DB: createRecordingDb(), ADMIN_PASSWORD: 'secret-pass' };
+
+  const missing = await worker.fetch(new Request('https://visitor.example.com/admin-data'), env);
+  assert.equal(missing.status, 401);
+  assert.deepEqual(await missing.json(), { error: 'Unauthorized' });
+
+  const invalid = await worker.fetch(new Request('https://visitor.example.com/admin-data', {
+    headers: { authorization: 'Bearer wrong-pass' }
+  }), env);
+  assert.equal(invalid.status, 401);
+  assert.deepEqual(await invalid.json(), { error: 'Unauthorized' });
+});
+
+test('GET /admin-data returns recent Visitor Logs and Online Visitor Count for the owner', async () => {
+  const db = createRecordingDb([
+    { count: 2 },
+    [{
+      id: 7,
+      ip_address: '203.0.113.21',
+      visited_at: '2026-06-23T12:00:00.000Z',
+      visited_page: '/2026/06/05/example-post/',
+      visitor_device_summary: 'Chrome on macOS'
+    }]
+  ]);
+
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-data', {
+    headers: { authorization: 'Bearer secret-pass' }
+  }), { VISITOR_DB: db, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    onlineCount: 2,
+    visitorLogs: [{
+      id: 7,
+      ipAddress: '203.0.113.21',
+      visitedAt: '2026-06-23T12:00:00.000Z',
+      visitedPage: '/2026/06/05/example-post/',
+      visitorDeviceSummary: 'Chrome on macOS'
+    }]
+  });
 });
 
 test('scheduled cleanup removes Visitor Logs older than 90 days', async () => {

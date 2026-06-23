@@ -686,3 +686,76 @@ body.has-background-video {
 .article-comments[data-status='unavailable'] .article-comments-status {
   color: #a33;
 }
+
+.admin-dashboard {
+  margin-top: 2rem;
+}
+
+.admin-login,
+.admin-section,
+.admin-comment {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.admin-login label {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.admin-login input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border, #bbb);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.admin-login button,
+.admin-comment button {
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  border-radius: 4px;
+  color: #fff;
+  background: var(--link-color, #444);
+  cursor: pointer;
+}
+
+.admin-status {
+  min-height: 1.5rem;
+  color: #a33;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--color-border, #ddd);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-comment-meta,
+.admin-comment-path,
+.admin-comment-email {
+  color: var(--text-color-secondary, #666);
+  font-size: 0.9em;
+}
+
+.admin-comment-body {
+  white-space: pre-wrap;
+}

@@ -22,6 +22,17 @@ function requireVisitorDb(env) {
   return env.VISITOR_DB;
 }
 
+function isAuthorizedAdmin(request, env) {
+  const expected = env?.ADMIN_PASSWORD;
+  if (!expected) return false;
+
+  return request.headers.get('authorization') === `Bearer ${expected}`;
+}
+
+function unauthorized() {
+  return json({ error: 'Unauthorized' }, { status: 401 });
+}
+
 async function handleHealth(env) {
   if (!env?.VISITOR_DB) {
     return json({
@@ -187,6 +198,12 @@ async function handlePresence(request, env) {
 
 async function handleOnlineCount(env, now = new Date()) {
   const db = requireVisitorDb(env);
+  const count = await readOnlineCount(db, now);
+
+  return json({ count });
+}
+
+async function readOnlineCount(db, now = new Date()) {
   const activeSince = new Date(now.getTime() - ONLINE_VISITOR_WINDOW_MINUTES * 60 * 1000);
   const row = await db.prepare(`
     SELECT COUNT(*) AS count
@@ -194,13 +211,52 @@ async function handleOnlineCount(env, now = new Date()) {
     WHERE last_seen_at >= ?1
   `).bind(activeSince.toISOString()).first();
 
-  return json({ count: Number(row?.count || 0) });
+  return Number(row?.count || 0);
+}
+
+function privateVisitorLog(row) {
+  return {
+    id: Number(row.id),
+    ipAddress: row.ip_address,
+    visitedAt: row.visited_at,
+    visitedPage: row.visited_page,
+    visitorDeviceSummary: row.visitor_device_summary
+  };
+}
+
+async function handleAdminData(request, env) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const db = requireVisitorDb(env);
+  const onlineCount = await readOnlineCount(db);
+  const result = await db.prepare(`
+    SELECT id, ip_address, visited_at, visited_page, visitor_device_summary
+    FROM visitor_logs
+    ORDER BY visited_at DESC, id DESC
+    LIMIT 100
+  `).all();
+
+  return json({
+    onlineCount,
+    visitorLogs: (result.results || []).map(privateVisitorLog)
+  });
 }
 
 function publicComment(row) {
   return {
     id: Number(row.id),
     name: row.comment_name,
+    body: row.comment_body,
+    createdAt: row.created_at
+  };
+}
+
+function privateComment(row) {
+  return {
+    id: Number(row.id),
+    articlePath: row.article_path,
+    name: row.comment_name,
+    email: row.comment_email,
     body: row.comment_body,
     createdAt: row.created_at
   };
@@ -276,6 +332,39 @@ async function handleCreateComment(request, env) {
   }, { status: 201 });
 }
 
+async function handleAdminListComments(request, env) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const db = requireVisitorDb(env);
+  const result = await db.prepare(`
+    SELECT id, article_path, comment_name, comment_email, comment_body, created_at
+    FROM article_comments
+    ORDER BY created_at DESC, id DESC
+    LIMIT 100
+  `).all();
+
+  return json({
+    comments: (result.results || []).map(privateComment)
+  });
+}
+
+async function handleAdminDeleteComment(request, env, id) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const commentId = Number(id);
+  if (!Number.isInteger(commentId) || commentId <= 0) {
+    return json({ error: 'Invalid comment id' }, { status: 400 });
+  }
+
+  const db = requireVisitorDb(env);
+  await db.prepare(`
+    DELETE FROM article_comments
+    WHERE id = ?1
+  `).bind(commentId).run();
+
+  return new Response(null, { status: 204 });
+}
+
 async function cleanupVisitorLogs(env, now = new Date()) {
   const db = requireVisitorDb(env);
   const cutoff = new Date(now.getTime() - VISITOR_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
@@ -306,12 +395,25 @@ export default {
       return handleOnlineCount(env);
     }
 
+    if (request.method === 'GET' && url.pathname === '/admin-data') {
+      return handleAdminData(request, env);
+    }
+
     if (request.method === 'GET' && url.pathname === '/comments') {
       return handleListComments(request, env);
     }
 
     if (request.method === 'POST' && url.pathname === '/comments') {
       return handleCreateComment(request, env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/admin-comments') {
+      return handleAdminListComments(request, env);
+    }
+
+    const adminCommentDeleteMatch = url.pathname.match(/^\/admin-comments\/(\d+)$/);
+    if (request.method === 'DELETE' && adminCommentDeleteMatch) {
+      return handleAdminDeleteComment(request, env, adminCommentDeleteMatch[1]);
     }
 
     return json({ error: 'Not found' }, { status: 404 });

@@ -21,3 +21,21 @@
   to = "https://my-life-visitor-state.windking566.workers.dev/visits"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/admin-data"
+  to = "https://my-life-visitor-state.windking566.workers.dev/admin-data"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin-comments"
+  to = "https://my-life-visitor-state.windking566.workers.dev/admin-comments"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin-comments/:id"
+  to = "https://my-life-visitor-state.windking566.workers.dev/admin-comments/:id"
+  status = 200
+  force = true

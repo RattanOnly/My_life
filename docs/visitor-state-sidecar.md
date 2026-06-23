@@ -154,3 +154,23 @@ Request body:
 `name` and `body` are required. `email` is optional and stored only as a private owner-facing contact field for future admin views. Public comment reads never return Comment Email.
 
 Anonymous Comments become Published Comments immediately. The first version intentionally does not add external account login, GitHub-based commenting, CAPTCHA, Turnstile, or manual moderation. If the sidecar is unavailable, the article remains readable and the comment area shows a visible failure state.
+
+## Admin Password
+
+The Visitor Admin Page and Comment Admin management endpoints require an `ADMIN_PASSWORD` Worker secret.
+
+Set it with:
+
+```bash
+cd worker
+npx wrangler secret put ADMIN_PASSWORD --config wrangler.toml
+```
+
+The value is not committed to source control. The admin page sends it as a Bearer token to `/admin-data` and `/admin-comments`.
+
+Verify after deployment:
+
+```bash
+curl -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-data
+curl -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-comments
+```
