@@ -30,6 +30,12 @@ GET /health
 
 It returns `ok: true` only when the Worker can reach the `VISITOR_DB` D1 binding.
 
+Apply D1 migrations locally before testing endpoints that write state:
+
+```bash
+npm exec -- wrangler --config worker/wrangler.toml d1 migrations apply my-life-visitor-state --local
+```
+
 ## D1 Binding
 
 The Worker expects a D1 binding named `VISITOR_DB`.
@@ -41,3 +47,36 @@ Do not commit real secrets. Future slices will add secrets such as the Admin Pas
 ## Migrations
 
 D1 migrations live under `worker/migrations/`. The first migration establishes a metadata table so the sidecar has a concrete migration path before Visitor Logs and presence tables are added.
+
+The Visitor Log migration creates a private `visitor_logs` table with:
+
+- `ip_address`
+- `visited_at`
+- `visited_page`
+- `visitor_device_summary`
+
+## Visitor Logs
+
+The public write endpoint is:
+
+```text
+POST /visits
+```
+
+Request body:
+
+```json
+{
+  "path": "/2026/06/22/example-post/"
+}
+```
+
+The Worker records the Visitor IP from Cloudflare's `CF-Connecting-IP` header, stores the current access time, normalizes the Visited Page to path plus query string, and stores a short Visitor Device Summary such as `Safari on iOS`.
+
+Visitor Logs are private. Public requests can write a Visitor Log through `POST /visits`, but there is no public endpoint that returns Visitor Logs.
+
+## Visitor Log Retention
+
+Visitor Log Retention is 90 days. `worker/wrangler.toml` configures a daily scheduled Worker trigger that deletes `visitor_logs` rows with `visited_at` older than the retention cutoff.
+
+This keeps regular visits to one D1 write each. Retention cleanup runs separately so page visits do not also perform cleanup queries.
