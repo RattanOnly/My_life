@@ -4,7 +4,17 @@
 </script>
 <script src="/js/background-video.js"></script>
 {% endif %}
+<div
+  id="visitor-online-count"
+  class="visitor-online-count"
+  data-endpoint="/online-count"
+  data-presence-endpoint="/presence"
+  data-heartbeat-interval-ms="60000"
+  data-status="idle">
+  当前在线：<span data-count>--</span> 人
+</div>
 <script src="/js/theme-effects.js"></script>
+<script src="/js/visitor-online.js"></script>
 <audio id="site-bgm" src="/music/bgm.mp3" preload="auto" loop style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"></audio>
 <script>
 (() => {
