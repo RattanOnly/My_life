@@ -6,6 +6,9 @@
     "build": "./tools/hexo-env.sh generate",
     "clean": "./tools/hexo-env.sh clean",
     "deploy": "./tools/hexo-env.sh deploy",
+    "test": "node --test",
+    "test:worker": "node --test worker/test/*.test.mjs",
+    "worker:dev": "wrangler dev --config worker/wrangler.toml",
     "server": "./tools/hexo-env.sh server",
     "hexo:watch": "./tools/hexo-env.sh server --watch",
     "bs:proxy": "browser-sync start --proxy http://localhost:4000 --files public/**/* --reload-delay 200 --no-open",
@@ -32,6 +35,7 @@
   },
   "devDependencies": {
     "browser-sync": "^3.0.4",
-    "npm-run-all": "^4.1.5"
+    "npm-run-all": "^4.1.5",
+    "wrangler": "^4.103.0"
   }
 }

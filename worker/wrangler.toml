@@ -1,0 +1,10 @@
+name = "my-life-visitor-state"
+main = "src/index.mjs"
+compatibility_date = "2026-06-23"
+workers_dev = true
+
+[[d1_databases]]
+binding = "VISITOR_DB"
+database_name = "my-life-visitor-state"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

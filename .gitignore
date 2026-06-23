@@ -6,5 +6,7 @@ node_modules/
 public/
 .deploy*/
 .worktrees/
+.wrangler/
+.dev.vars
 _multiconfig.yml
 .env
