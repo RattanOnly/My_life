@@ -1,0 +1,23 @@
+[[redirects]]
+  from = "/comments"
+  to = "https://my-life-visitor-state.windking566.workers.dev/comments"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/presence"
+  to = "https://my-life-visitor-state.windking566.workers.dev/presence"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/online-count"
+  to = "https://my-life-visitor-state.windking566.workers.dev/online-count"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/visits"
+  to = "https://my-life-visitor-state.windking566.workers.dev/visits"
+  status = 200
+  force = true

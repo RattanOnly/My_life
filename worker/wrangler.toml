@@ -9,5 +9,5 @@ crons = ["17 3 * * *"]
 [[d1_databases]]
 binding = "VISITOR_DB"
 database_name = "my-life-visitor-state"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "8db207b2-f73b-46f3-bab6-f2acade0f434"
 migrations_dir = "migrations"
