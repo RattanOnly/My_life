@@ -39,3 +39,21 @@
   to = "https://my-life-visitor-state.windking566.workers.dev/admin-comments/:id"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/admin-owner-ip-marks"
+  to = "https://my-life-visitor-state.windking566.workers.dev/admin-owner-ip-marks"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin-owner-ip-marks/:ipAddress"
+  to = "https://my-life-visitor-state.windking566.workers.dev/admin-owner-ip-marks/:ipAddress"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin-visits"
+  to = "https://my-life-visitor-state.windking566.workers.dev/admin-visits"
+  status = 200
+  force = true

@@ -16,13 +16,25 @@ _Avoid_: Comment IP, public visitor list
 The public blog page path recorded in a Visitor Log.
 _Avoid_: Full browsing profile
 
+**Visitor Location**:
+A coarse location derived from the Visitor's network request, such as country, region, and city when available.
+_Avoid_: Exact address, GPS location
+
 **Visitor Device Summary**:
 A short browser or device summary recorded in a Visitor Log.
 _Avoid_: Visitor fingerprint
 
+**Owner Visitor**:
+A Visitor Log entry recognized by the owner as coming from their own trusted device or network, shown as local to avoid distracting the owner from other visits.
+_Avoid_: Admin account, authenticated visitor
+
 **Visitor Log Retention**:
 The period Visitor Logs are kept before they are no longer needed for the blog owner.
 _Avoid_: Permanent visitor history
+
+**Visitor Log Clearing**:
+An owner action that removes Visitor Logs when they are no longer useful to review.
+_Avoid_: Comment deletion, online visitor reset
 
 **Online Visitor Count**:
 A public count of Visitors currently browsing the blog, shown without exposing individual identities or IP addresses.
@@ -36,9 +48,17 @@ _Avoid_: Sidebar online count, article online count
 A private owner-facing page for viewing Visitor Logs and the current Online Visitor Count.
 _Avoid_: Public stats page, full admin console
 
+**Admin Data Refresh**:
+An owner action that reloads the Visitor Admin Page data without leaving the current page or re-entering the Admin Password.
+_Avoid_: Browser refresh, redeploy
+
 **Admin Password**:
 The shared secret required to open the Visitor Admin Page.
 _Avoid_: User account, OAuth login
+
+**Remembered Admin Access**:
+An owner convenience where the Visitor Admin Page can reopen without asking for the Admin Password again on the same trusted browser.
+_Avoid_: User account, permanent login
 
 **Anonymous Comment**:
 A comment submitted by a Visitor without signing in through an external account.

@@ -6,13 +6,29 @@ const json = (body, init = {}) => new Response(JSON.stringify(body), {
   }
 });
 
-const VISITOR_LOG_RETENTION_DAYS = 90;
+const VISITOR_LOG_RETENTION_DAYS = 30;
 const ONLINE_VISITOR_WINDOW_MINUTES = 3;
 const MAX_VISITED_PAGE_LENGTH = 512;
 const MAX_DEVICE_SUMMARY_LENGTH = 80;
+const MAX_VISITOR_LOCATION_LENGTH = 160;
 const MAX_COMMENT_NAME_LENGTH = 80;
 const MAX_COMMENT_EMAIL_LENGTH = 160;
 const MAX_COMMENT_BODY_LENGTH = 2000;
+const COUNTRY_NAMES = {
+  CN: '中国',
+  HK: '中国香港',
+  MO: '中国澳门',
+  TW: '中国台湾',
+  US: '美国',
+  CA: '加拿大',
+  GB: '英国',
+  JP: '日本',
+  KR: '韩国',
+  SG: '新加坡',
+  AU: '澳大利亚',
+  DE: '德国',
+  FR: '法国'
+};
 
 function requireVisitorDb(env) {
   if (!env?.VISITOR_DB) {
@@ -124,6 +140,10 @@ function cleanText(value, maxLength) {
   return value.trim().slice(0, maxLength);
 }
 
+function cleanIpAddress(value) {
+  return cleanText(value, 80);
+}
+
 function summarizeBrowser(userAgent) {
   if (/Edg\//.test(userAgent)) return 'Edge';
   if (/Chrome\//.test(userAgent) && !/Chromium/.test(userAgent)) return 'Chrome';
@@ -152,6 +172,15 @@ function summarizeDevice(userAgent) {
   return summary.slice(0, MAX_DEVICE_SUMMARY_LENGTH);
 }
 
+function summarizeVisitorLocation(cf = {}) {
+  const country = COUNTRY_NAMES[cf.country] || cf.country;
+  const parts = [country, cf.region, cf.city]
+    .map(value => cleanText(value || '', 80))
+    .filter(Boolean);
+
+  return (parts.length ? parts.join(' · ') : '未知地区').slice(0, MAX_VISITOR_LOCATION_LENGTH);
+}
+
 async function handleVisit(request, env) {
   const db = requireVisitorDb(env);
   const body = await readJson(request);
@@ -159,20 +188,23 @@ async function handleVisit(request, env) {
   const visitedAt = new Date().toISOString();
   const visitedPage = normalizeVisitedPage(body.path);
   const visitorDeviceSummary = summarizeDevice(request.headers.get('user-agent') || '');
+  const visitorLocation = summarizeVisitorLocation(request.cf || {});
 
   await db.prepare(`
     INSERT INTO visitor_logs (
       ip_address,
       visited_at,
       visited_page,
-      visitor_device_summary
+      visitor_device_summary,
+      visitor_location
     )
-    VALUES (?1, ?2, ?3, ?4)
+    VALUES (?1, ?2, ?3, ?4, ?5)
   `).bind(
     ipAddress,
     visitedAt,
     visitedPage,
-    visitorDeviceSummary
+    visitorDeviceSummary,
+    visitorLocation
   ).run();
 
   return new Response(null, { status: 204 });
@@ -220,7 +252,9 @@ function privateVisitorLog(row) {
     ipAddress: row.ip_address,
     visitedAt: row.visited_at,
     visitedPage: row.visited_page,
-    visitorDeviceSummary: row.visitor_device_summary
+    visitorDeviceSummary: row.visitor_device_summary,
+    visitorLocation: row.visitor_location || '未知地区',
+    isOwnerVisitor: Boolean(row.is_owner_visitor)
   };
 }
 
@@ -230,16 +264,75 @@ async function handleAdminData(request, env) {
   const db = requireVisitorDb(env);
   const onlineCount = await readOnlineCount(db);
   const result = await db.prepare(`
-    SELECT id, ip_address, visited_at, visited_page, visitor_device_summary
+    SELECT
+      visitor_logs.id,
+      visitor_logs.ip_address,
+      visitor_logs.visited_at,
+      visitor_logs.visited_page,
+      visitor_logs.visitor_device_summary,
+      COALESCE(visitor_logs.visitor_location, '未知地区') AS visitor_location,
+      owner_ip_marks.ip_address IS NOT NULL AS is_owner_visitor
     FROM visitor_logs
-    ORDER BY visited_at DESC, id DESC
-    LIMIT 100
+    LEFT JOIN owner_ip_marks ON owner_ip_marks.ip_address = visitor_logs.ip_address
+    ORDER BY visitor_logs.visited_at DESC, visitor_logs.id DESC
+    LIMIT 50
   `).all();
 
   return json({
     onlineCount,
     visitorLogs: (result.results || []).map(privateVisitorLog)
   });
+}
+
+async function handleMarkOwnerIp(request, env) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const body = await readJson(request);
+  const ipAddress = cleanIpAddress(body.ipAddress);
+  if (!ipAddress) {
+    return json({ error: 'IP address is required' }, { status: 400 });
+  }
+
+  const db = requireVisitorDb(env);
+  await db.prepare(`
+    INSERT INTO owner_ip_marks (
+      ip_address,
+      created_at
+    )
+    VALUES (?1, ?2)
+    ON CONFLICT(ip_address) DO UPDATE SET
+      created_at = excluded.created_at
+  `).bind(ipAddress, new Date().toISOString()).run();
+
+  return new Response(null, { status: 204 });
+}
+
+async function handleUnmarkOwnerIp(request, env, ipAddress) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const cleanIp = cleanIpAddress(ipAddress);
+  if (!cleanIp) {
+    return json({ error: 'IP address is required' }, { status: 400 });
+  }
+
+  const db = requireVisitorDb(env);
+  await db.prepare(`
+    DELETE FROM owner_ip_marks
+    WHERE ip_address = ?1
+  `).bind(cleanIp).run();
+
+  return new Response(null, { status: 204 });
+}
+
+async function handleClearVisitorLogs(request, env) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const db = requireVisitorDb(env);
+  await db.prepare(`
+    DELETE FROM visitor_logs
+  `).run();
+
+  return new Response(null, { status: 204 });
 }
 
 function publicComment(row) {
@@ -397,6 +490,19 @@ export default {
 
     if (request.method === 'GET' && url.pathname === '/admin-data') {
       return handleAdminData(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/admin-owner-ip-marks') {
+      return handleMarkOwnerIp(request, env);
+    }
+
+    const ownerIpDeleteMatch = url.pathname.match(/^\/admin-owner-ip-marks\/(.+)$/);
+    if (request.method === 'DELETE' && ownerIpDeleteMatch) {
+      return handleUnmarkOwnerIp(request, env, decodeURIComponent(ownerIpDeleteMatch[1]));
+    }
+
+    if (request.method === 'DELETE' && url.pathname === '/admin-visits') {
+      return handleClearVisitorLogs(request, env);
     }
 
     if (request.method === 'GET' && url.pathname === '/comments') {

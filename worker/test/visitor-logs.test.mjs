@@ -37,7 +37,7 @@ function createRecordingDb(firstResults = []) {
 
 test('POST /visits records a private Visitor Log with only the required fields', async () => {
   const db = createRecordingDb();
-  const response = await worker.fetch(new Request('https://visitor.example.com/visits', {
+  const request = new Request('https://visitor.example.com/visits', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -45,7 +45,12 @@ test('POST /visits records a private Visitor Log with only the required fields',
       'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
     },
     body: JSON.stringify({ path: '/posts/family-note?from=home#private-fragment' })
-  }), { VISITOR_DB: db });
+  });
+  Object.defineProperty(request, 'cf', {
+    value: { country: 'CN', region: 'Guangdong', city: 'Shenzhen' }
+  });
+
+  const response = await worker.fetch(request, { VISITOR_DB: db });
 
   assert.equal(response.status, 204);
   assert.equal(await response.text(), '');
@@ -56,12 +61,14 @@ test('POST /visits records a private Visitor Log with only the required fields',
   assert.match(db.calls[0].sql, /visited_at/i);
   assert.match(db.calls[0].sql, /visited_page/i);
   assert.match(db.calls[0].sql, /visitor_device_summary/i);
+  assert.match(db.calls[0].sql, /visitor_location/i);
 
-  const [ipAddress, visitedAt, visitedPage, deviceSummary] = db.calls[0].values;
+  const [ipAddress, visitedAt, visitedPage, deviceSummary, visitorLocation] = db.calls[0].values;
   assert.equal(ipAddress, '203.0.113.10');
   assert.ok(!Number.isNaN(Date.parse(visitedAt)));
   assert.equal(visitedPage, '/posts/family-note?from=home');
   assert.equal(deviceSummary, 'Safari on iOS');
+  assert.equal(visitorLocation, '中国 · Guangdong · Shenzhen');
   assert.ok(deviceSummary.length <= 80);
   assert.doesNotMatch(deviceSummary, /17\.5|605\.1\.15|15E148|Mozilla/i);
 });
@@ -101,7 +108,9 @@ test('GET /admin-data returns recent Visitor Logs and Online Visitor Count for t
       ip_address: '203.0.113.21',
       visited_at: '2026-06-23T12:00:00.000Z',
       visited_page: '/2026/06/05/example-post/',
-      visitor_device_summary: 'Chrome on macOS'
+      visitor_device_summary: 'Chrome on macOS',
+      visitor_location: '美国 · California · San Francisco',
+      is_owner_visitor: 1
     }]
   ]);
 
@@ -117,12 +126,17 @@ test('GET /admin-data returns recent Visitor Logs and Online Visitor Count for t
       ipAddress: '203.0.113.21',
       visitedAt: '2026-06-23T12:00:00.000Z',
       visitedPage: '/2026/06/05/example-post/',
-      visitorDeviceSummary: 'Chrome on macOS'
+      visitorDeviceSummary: 'Chrome on macOS',
+      visitorLocation: '美国 · California · San Francisco',
+      isOwnerVisitor: true
     }]
   });
+  assert.match(db.calls[1].sql, /LEFT JOIN owner_ip_marks/i);
+  assert.match(db.calls[1].sql, /visitor_location/i);
+  assert.match(db.calls[1].sql, /LIMIT 50/i);
 });
 
-test('scheduled cleanup removes Visitor Logs older than 90 days', async () => {
+test('scheduled cleanup removes Visitor Logs older than 30 days', async () => {
   const db = createRecordingDb();
 
   await worker.scheduled({
@@ -132,7 +146,7 @@ test('scheduled cleanup removes Visitor Logs older than 90 days', async () => {
   assert.equal(db.calls.length, 1);
   assert.match(db.calls[0].sql, /DELETE FROM visitor_logs/i);
   assert.match(db.calls[0].sql, /visited_at\s*<\s*\?1/i);
-  assert.deepEqual(db.calls[0].values, ['2026-03-25T12:00:00.000Z']);
+  assert.deepEqual(db.calls[0].values, ['2026-05-24T12:00:00.000Z']);
 });
 
 test('Visitor Log migration creates required fields and an access-time index', async () => {
@@ -147,6 +161,88 @@ test('Visitor Log migration creates required fields and an access-time index', a
   assert.match(migration, /visited_page\s+TEXT\s+NOT NULL/i);
   assert.match(migration, /visitor_device_summary\s+TEXT\s+NOT NULL/i);
   assert.match(migration, /CREATE INDEX IF NOT EXISTS idx_visitor_logs_visited_at/i);
+});
+
+test('Visitor Log location and Owner Visitor migration adds required fields', async () => {
+  const migration = await readFile(
+    new URL('../migrations/0005_visitor_log_location_and_owner_ip.sql', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(migration, /ALTER TABLE visitor_logs ADD COLUMN visitor_location TEXT/i);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS owner_ip_marks/i);
+  assert.match(migration, /ip_address\s+TEXT\s+PRIMARY KEY/i);
+  assert.match(migration, /created_at\s+TEXT\s+NOT NULL/i);
+});
+
+test('POST /admin-owner-ip-marks marks an Owner Visitor IP only for the owner', async () => {
+  const unauthorizedDb = createRecordingDb();
+  const unauthorized = await worker.fetch(new Request('https://visitor.example.com/admin-owner-ip-marks', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ipAddress: '203.0.113.21' })
+  }), { VISITOR_DB: unauthorizedDb, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(unauthorized.status, 401);
+  assert.equal(unauthorizedDb.calls.length, 0);
+
+  const db = createRecordingDb();
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-owner-ip-marks', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer secret-pass',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ ipAddress: '203.0.113.21' })
+  }), { VISITOR_DB: db, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(response.status, 204);
+  assert.equal(db.calls.length, 1);
+  assert.match(db.calls[0].sql, /INSERT INTO owner_ip_marks/i);
+  assert.match(db.calls[0].sql, /ON CONFLICT/i);
+  assert.equal(db.calls[0].values[0], '203.0.113.21');
+  assert.ok(!Number.isNaN(Date.parse(db.calls[0].values[1])));
+});
+
+test('DELETE /admin-owner-ip-marks/:ipAddress removes an Owner Visitor mark only for the owner', async () => {
+  const unauthorizedDb = createRecordingDb();
+  const unauthorized = await worker.fetch(new Request('https://visitor.example.com/admin-owner-ip-marks/203.0.113.21', {
+    method: 'DELETE'
+  }), { VISITOR_DB: unauthorizedDb, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(unauthorized.status, 401);
+  assert.equal(unauthorizedDb.calls.length, 0);
+
+  const db = createRecordingDb();
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-owner-ip-marks/203.0.113.21', {
+    method: 'DELETE',
+    headers: { authorization: 'Bearer secret-pass' }
+  }), { VISITOR_DB: db, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(response.status, 204);
+  assert.equal(db.calls.length, 1);
+  assert.match(db.calls[0].sql, /DELETE FROM owner_ip_marks/i);
+  assert.equal(db.calls[0].values[0], '203.0.113.21');
+});
+
+test('DELETE /admin-visits clears Visitor Logs only for the owner', async () => {
+  const unauthorizedDb = createRecordingDb();
+  const unauthorized = await worker.fetch(new Request('https://visitor.example.com/admin-visits', {
+    method: 'DELETE'
+  }), { VISITOR_DB: unauthorizedDb, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(unauthorized.status, 401);
+  assert.equal(unauthorizedDb.calls.length, 0);
+
+  const db = createRecordingDb();
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-visits', {
+    method: 'DELETE',
+    headers: { authorization: 'Bearer secret-pass' }
+  }), { VISITOR_DB: db, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(response.status, 204);
+  assert.equal(db.calls.length, 1);
+  assert.match(db.calls[0].sql, /DELETE FROM visitor_logs/i);
 });
 
 test('Wrangler config schedules daily Visitor Log retention cleanup', async () => {

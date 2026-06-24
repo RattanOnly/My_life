@@ -28,7 +28,14 @@ test('Visitor operations documentation covers deployment, configuration, verific
     '/admin/',
     '/admin-data',
     '/admin-comments',
-    'Visitor Log Retention is 90 days',
+    '/admin-owner-ip-marks',
+    '/admin-visits',
+    'Visitor Log Retention is 30 days',
+    'latest 50 Visitor Logs',
+    'Refresh reloads the latest admin data without a browser refresh',
+    'Logout forgets the saved Admin Password',
+    'Mark Local labels an owner IP as local',
+    'Clear Visitor Logs removes Visitor Logs without deleting comments or Online Visitor Count state',
     'Do not commit real secrets'
   ]) {
     assert.match(doc, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
