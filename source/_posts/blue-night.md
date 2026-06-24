@@ -8,6 +8,8 @@ categories:
   - 日常
 musicList:
   - url: /music/Blue_Night.mp3
+commentPathAliases:
+  - /2025/12/18/蓝色夜晚的记忆/
 ---
 >努力活完短短一生，把成果留给后代继承，人类就是这样慢慢成长，真的很了不起！
 

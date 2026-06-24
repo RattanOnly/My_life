@@ -33,7 +33,15 @@
     const form = root.querySelector('[data-comments-form]');
     const status = root.querySelector('[data-comments-status]');
     const articlePath = window.location.pathname;
-    const commentsUrl = `${endpoint}?path=${encodeURIComponent(articlePath)}`;
+    const pathAliases = (() => {
+      try {
+        const aliases = JSON.parse(root.getAttribute('data-comment-path-aliases') || '[]');
+        return Array.isArray(aliases) ? aliases.filter(alias => typeof alias === 'string' && alias) : [];
+      } catch {
+        return [];
+      }
+    })();
+    const commentsUrl = `${endpoint}?path=${encodeURIComponent(articlePath)}&aliases=${encodeURIComponent(pathAliases.join(','))}`;
 
     const setStatus = message => {
       if (status) status.textContent = message;

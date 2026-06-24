@@ -6,6 +6,8 @@ tags:
   - 健康
 categories:
   - 灵魂
+commentPathAliases:
+  - /2026/02/11/如何才算休息/
 ---
 ![风景](images/Resource/out.png)
 

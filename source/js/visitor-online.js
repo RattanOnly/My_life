@@ -8,7 +8,9 @@
   const presenceEndpoint = container.dataset.presenceEndpoint || '/presence';
   const visitEndpoint = container.dataset.visitEndpoint || '/visits';
   const intervalMs = Math.max(Number(container.dataset.heartbeatIntervalMs) || 60000, 30000);
+  const VISITOR_ID_STORAGE_KEY = 'visitor_online_id';
   let lastRecordedPath = '';
+  let memoryVisitorId = '';
 
   const markUnavailable = () => {
     container.dataset.status = 'unavailable';
@@ -20,11 +22,48 @@
     container.dataset.status = 'ready';
   };
 
+  const createVisitorId = () => {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+
+    const random = window.crypto && typeof window.crypto.getRandomValues === 'function'
+      ? Array.from(window.crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16)).join('')
+      : Math.random().toString(36).slice(2);
+
+    return `${Date.now().toString(36)}-${random}`;
+  };
+
+  const getVisitorId = () => {
+    if (memoryVisitorId) return memoryVisitorId;
+
+    try {
+      const existing = window.localStorage.getItem(VISITOR_ID_STORAGE_KEY);
+      if (existing) {
+        memoryVisitorId = existing;
+        return memoryVisitorId;
+      }
+
+      memoryVisitorId = createVisitorId();
+      window.localStorage.setItem(VISITOR_ID_STORAGE_KEY, memoryVisitorId);
+      return memoryVisitorId;
+    } catch (error) {
+      if (!memoryVisitorId) {
+        memoryVisitorId = createVisitorId();
+      }
+      return memoryVisitorId;
+    }
+  };
+
   const sendPresence = async () => {
     await fetch(presenceEndpoint, {
       method: 'POST',
       credentials: 'omit',
-      keepalive: true
+      keepalive: true,
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ visitorId: getVisitorId() })
     });
   };
 

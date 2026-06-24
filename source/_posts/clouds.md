@@ -6,6 +6,8 @@ tags:
   - 心情
 categories:
   - 日常
+commentPathAliases:
+  - /2026/05/16/天上的云一直在飘/
 ---
 >岂不闻光阴如骏马加鞭，岁月如落花流水
 

@@ -5,6 +5,8 @@ tags:
   - 性格
 categories:
   - 日常
+commentPathAliases:
+  - /2026/06/08/蜕变了吗/
 ---
 
 ### 随想

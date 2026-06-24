@@ -19,6 +19,10 @@ test('Visitor operations documentation covers deployment, configuration, verific
   }
 
   for (const requiredText of [
+    'Public pages call the Worker directly',
+    'https://my-life-visitor-state.windking566.workers.dev/comments',
+    'https://my-life-visitor-state.windking566.workers.dev/online-count',
+    'anonymous browser Visitor ID',
     'wrangler deploy --config worker/wrangler.toml',
     'd1 migrations apply my-life-visitor-state --remote',
     'ADMIN_PASSWORD',
@@ -40,4 +44,6 @@ test('Visitor operations documentation covers deployment, configuration, verific
   ]) {
     assert.match(doc, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+
+  assert.doesNotMatch(doc, /Public pages call same-origin paths, and Netlify forwards them to the Worker/);
 });

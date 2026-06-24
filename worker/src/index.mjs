@@ -11,9 +11,18 @@ const ONLINE_VISITOR_WINDOW_MINUTES = 3;
 const MAX_VISITED_PAGE_LENGTH = 512;
 const MAX_DEVICE_SUMMARY_LENGTH = 80;
 const MAX_VISITOR_LOCATION_LENGTH = 160;
+const MAX_VISITOR_ID_LENGTH = 160;
 const MAX_COMMENT_NAME_LENGTH = 80;
 const MAX_COMMENT_EMAIL_LENGTH = 160;
 const MAX_COMMENT_BODY_LENGTH = 2000;
+const PUBLIC_CORS_PATHS = new Set(['/visits', '/presence', '/online-count', '/comments']);
+const PUBLIC_CORS_ORIGINS = new Set([
+  'https://lovezvv.com',
+  'https://www.lovezvv.com',
+  'https://zw1443.netlify.app',
+  'http://localhost:4000',
+  'http://127.0.0.1:4000'
+]);
 const COUNTRY_NAMES = {
   CN: '中国',
   HK: '中国香港',
@@ -47,6 +56,41 @@ function isAuthorizedAdmin(request, env) {
 
 function unauthorized() {
   return json({ error: 'Unauthorized' }, { status: 401 });
+}
+
+function publicCorsHeaders(request) {
+  const origin = request.headers.get('origin') || '';
+  if (!PUBLIC_CORS_ORIGINS.has(origin)) {
+    return {};
+  }
+
+  return {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    'access-control-max-age': '86400',
+    vary: 'Origin'
+  };
+}
+
+function withPublicCors(response, request) {
+  const headers = new Headers(response.headers);
+  Object.entries(publicCorsHeaders(request)).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
+function handlePublicCorsOptions(request) {
+  return new Response(null, {
+    status: 204,
+    headers: publicCorsHeaders(request)
+  });
 }
 
 async function handleHealth(env) {
@@ -101,6 +145,15 @@ async function getVisitorKey(request) {
   ].join('|'));
 }
 
+async function getPresenceVisitorKey(request, body) {
+  const visitorId = cleanText(body.visitorId, MAX_VISITOR_ID_LENGTH);
+  if (visitorId) {
+    return sha256Hex(`browser:${visitorId}`);
+  }
+
+  return getVisitorKey(request);
+}
+
 function normalizeVisitedPage(path) {
   if (typeof path !== 'string' || path.trim() === '') {
     return '/';
@@ -130,6 +183,28 @@ function normalizeArticlePath(path) {
   }
 
   return parsed.pathname.slice(0, MAX_VISITED_PAGE_LENGTH);
+}
+
+function normalizeArticlePaths(paths) {
+  const normalized = [];
+  const seen = new Set();
+
+  paths.forEach(path => {
+    const articlePath = normalizeArticlePath(path);
+    if (!articlePath || seen.has(articlePath)) return;
+    seen.add(articlePath);
+    normalized.push(articlePath);
+  });
+
+  return normalized;
+}
+
+function readCommentPathAliases(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return [];
+  }
+
+  return value.split(',').map(alias => alias.trim()).filter(Boolean).slice(0, 10);
 }
 
 function cleanText(value, maxLength) {
@@ -212,7 +287,8 @@ async function handleVisit(request, env) {
 
 async function handlePresence(request, env) {
   const db = requireVisitorDb(env);
-  const visitorKey = await getVisitorKey(request);
+  const body = await readJson(request);
+  const visitorKey = await getPresenceVisitorKey(request, body);
   const lastSeenAt = new Date().toISOString();
 
   await db.prepare(`
@@ -359,18 +435,23 @@ async function handleListComments(request, env) {
   const db = requireVisitorDb(env);
   const url = new URL(request.url);
   const articlePath = normalizeArticlePath(url.searchParams.get('path'));
+  const articlePaths = normalizeArticlePaths([
+    articlePath,
+    ...readCommentPathAliases(url.searchParams.get('aliases'))
+  ]);
 
-  if (!articlePath) {
+  if (!articlePaths.length) {
     return json({ error: 'Article path is required' }, { status: 400 });
   }
 
+  const placeholders = articlePaths.map((_, index) => `?${index + 1}`).join(',');
   const result = await db.prepare(`
     SELECT id, comment_name, comment_body, created_at
     FROM article_comments
-    WHERE article_path = ?1
+    WHERE article_path IN (${placeholders})
     ORDER BY created_at ASC, id ASC
     LIMIT 100
-  `).bind(articlePath).all();
+  `).bind(...articlePaths).all();
 
   return json({
     comments: (result.results || []).map(publicComment)
@@ -472,20 +553,24 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (request.method === 'OPTIONS' && PUBLIC_CORS_PATHS.has(url.pathname)) {
+      return handlePublicCorsOptions(request);
+    }
+
     if (request.method === 'GET' && url.pathname === '/health') {
       return handleHealth(env);
     }
 
     if (request.method === 'POST' && url.pathname === '/visits') {
-      return handleVisit(request, env);
+      return withPublicCors(await handleVisit(request, env), request);
     }
 
     if (request.method === 'POST' && url.pathname === '/presence') {
-      return handlePresence(request, env);
+      return withPublicCors(await handlePresence(request, env), request);
     }
 
     if (request.method === 'GET' && url.pathname === '/online-count') {
-      return handleOnlineCount(env);
+      return withPublicCors(await handleOnlineCount(env), request);
     }
 
     if (request.method === 'GET' && url.pathname === '/admin-data') {
@@ -506,11 +591,11 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/comments') {
-      return handleListComments(request, env);
+      return withPublicCors(await handleListComments(request, env), request);
     }
 
     if (request.method === 'POST' && url.pathname === '/comments') {
-      return handleCreateComment(request, env);
+      return withPublicCors(await handleCreateComment(request, env), request);
     }
 
     if (request.method === 'GET' && url.pathname === '/admin-comments') {

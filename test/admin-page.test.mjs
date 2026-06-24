@@ -44,6 +44,11 @@ test('admin dashboard script authenticates, loads owner data, and deletes commen
   assert.match(script, /unmarkOwnerIp/);
   assert.match(script, /log\.isOwnerVisitor/);
   assert.match(script, /log\.visitorLocation/);
+  assert.match(script, /formatVisitorLocation/);
+  assert.match(script, /formatVisitedPage/);
+  assert.match(script, /decodeURI/);
   assert.match(script, /本机/);
+  assert.doesNotMatch(script, /appendCell\(row,\s*log\.visitorLocation\s*\|\|\s*'未知地区'\)/);
+  assert.doesNotMatch(script, /appendCell\(row,\s*log\.visitedPage\)/);
   assert.doesNotMatch(script, /innerHTML\s*=/);
 });

@@ -6,6 +6,8 @@ tags:
 - 随记
 categories:
 - 灵魂
+commentPathAliases:
+  - /2026/02/06/你不必记录一切/
 ---
 ### 还好吗
 好久没有更新了，大家过的还好吗

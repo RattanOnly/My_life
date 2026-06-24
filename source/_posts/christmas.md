@@ -6,6 +6,8 @@ tags:
   - 学习
 categories:
   - 日常
+commentPathAliases:
+  - /2025/12/21/马上要圣诞节咯/
 ---
 # 马上要圣诞节咯
 

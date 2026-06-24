@@ -44,6 +44,21 @@
     row.append(cell);
   };
 
+  const formatVisitorLocation = log => {
+    if (log.visitorLocation && log.visitorLocation !== '未知地区') return log.visitorLocation;
+    return log.isOwnerVisitor ? '本机' : '未知地区';
+  };
+
+  const formatVisitedPage = path => {
+    if (!path) return '';
+
+    try {
+      return decodeURI(path);
+    } catch {
+      return path;
+    }
+  };
+
   const adminFetch = async (url, options = {}) => fetch(url, {
     ...options,
     headers: {
@@ -108,8 +123,8 @@
       const row = document.createElement('tr');
       appendCell(row, log.visitedAt ? new Date(log.visitedAt).toLocaleString() : '');
       appendCell(row, log.isOwnerVisitor ? '本机' : log.ipAddress);
-      appendCell(row, log.visitorLocation || '未知地区');
-      appendCell(row, log.visitedPage);
+      appendCell(row, formatVisitorLocation(log));
+      appendCell(row, formatVisitedPage(log.visitedPage));
       appendCell(row, log.visitorDeviceSummary);
       const actionButton = document.createElement('button');
       actionButton.type = 'button';

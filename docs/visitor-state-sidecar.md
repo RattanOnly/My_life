@@ -59,7 +59,7 @@ The deployed Worker URL currently used by the static site is:
 https://my-life-visitor-state.windking566.workers.dev
 ```
 
-The static blog is deployed by pushing `main` to GitHub. Netlify reads `netlify.toml`, builds the Hexo site, and proxies the Visitor state endpoints to the Worker.
+The static blog is deployed by pushing `main` to GitHub. Netlify reads `netlify.toml` and builds the Hexo site. Public visitor/comment requests now call the Worker directly so the Worker can see the visitor network IP instead of a Netlify proxy IP; the Netlify proxy rules remain as compatibility and for owner-facing admin paths.
 
 ## D1 Binding
 
@@ -101,12 +101,17 @@ The comment migration creates `article_comments` for Published Comments, includi
 
 ## Static Blog Configuration
 
-The Hexo/NexT static site points at the Worker through `netlify.toml` proxy rules. Public pages call same-origin paths, and Netlify forwards them to the Worker:
+Public pages call the Worker directly through the deployed Worker URL:
 
-- `/visits`
-- `/presence`
-- `/online-count`
-- `/comments`
+- `https://my-life-visitor-state.windking566.workers.dev/visits`
+- `https://my-life-visitor-state.windking566.workers.dev/presence`
+- `https://my-life-visitor-state.windking566.workers.dev/online-count`
+- `https://my-life-visitor-state.windking566.workers.dev/comments`
+
+The Worker allows CORS for the production site domains and local Hexo development origins. This keeps public Visitor Logs, Online Visitor Count, and Published Comments off the Netlify proxy path.
+
+Owner-facing admin pages still call same-origin paths so Admin Password requests stay under the site domain, and Netlify forwards those paths to the Worker:
+
 - `/admin-data`
 - `/admin-comments`
 - `/admin-comments/:id`
@@ -134,7 +139,7 @@ npm run build
 The public write endpoint is:
 
 ```text
-POST /visits
+POST https://my-life-visitor-state.windking566.workers.dev/visits
 ```
 
 Request body:
@@ -160,15 +165,15 @@ This keeps regular visits to one D1 write each. Retention cleanup runs separatel
 The public heartbeat endpoint is:
 
 ```text
-POST /presence
+POST https://my-life-visitor-state.windking566.workers.dev/presence
 ```
 
-It updates the Visitor's current presence without writing to permanent Visitor Logs.
+It updates the Visitor's current presence without writing to permanent Visitor Logs. The browser sends an anonymous browser Visitor ID stored in local storage. The Worker hashes that ID before writing `visitor_presence`, so a single browser stays one online visitor even if the network IP changes during the session.
 
 The public count endpoint is:
 
 ```text
-GET /online-count
+GET https://my-life-visitor-state.windking566.workers.dev/online-count
 ```
 
 Response body:
@@ -190,7 +195,7 @@ Article pages include an Article Comment Area at the bottom of the post body and
 The public read endpoint is:
 
 ```text
-GET /comments?path=/2026/06/05/example-post/
+GET https://my-life-visitor-state.windking566.workers.dev/comments?path=/2026/06/05/example-post/
 ```
 
 Response body:
@@ -211,7 +216,7 @@ Response body:
 The public write endpoint is:
 
 ```text
-POST /comments
+POST https://my-life-visitor-state.windking566.workers.dev/comments
 ```
 
 Request body:
@@ -287,6 +292,7 @@ Verify the deployed Worker:
 ```bash
 curl https://my-life-visitor-state.windking566.workers.dev/health
 curl https://my-life-visitor-state.windking566.workers.dev/online-count
+curl -H "Origin: https://lovezvv.com" https://my-life-visitor-state.windking566.workers.dev/online-count
 curl -H "Authorization: Bearer <password>" https://my-life-visitor-state.windking566.workers.dev/admin-data
 curl -H "Authorization: Bearer <password>" https://my-life-visitor-state.windking566.workers.dev/admin-comments
 curl -X POST -H "Authorization: Bearer <password>" -H "content-type: application/json" -d '{"ipAddress":"203.0.113.21"}' https://my-life-visitor-state.windking566.workers.dev/admin-owner-ip-marks
@@ -295,12 +301,10 @@ curl -X POST -H "Authorization: Bearer <password>" -H "content-type: application
 Verify the Netlify site:
 
 ```bash
-curl https://zw1443.netlify.app/online-count
-curl "https://zw1443.netlify.app/comments?path=/2026/06/05/example-post/"
-curl -I https://zw1443.netlify.app/admin/
-curl -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-data
-curl -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-comments
-curl -X DELETE -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-visits
+curl -I https://lovezvv.com/admin/
+curl -H "Authorization: Bearer <password>" https://lovezvv.com/admin-data
+curl -H "Authorization: Bearer <password>" https://lovezvv.com/admin-comments
+curl -X DELETE -H "Authorization: Bearer <password>" https://lovezvv.com/admin-visits
 ```
 
 Browser checks:
@@ -317,14 +321,14 @@ Browser checks:
 
 If the Footer Online Count stays as `--`:
 
-- Check that `GET /online-count` returns JSON from both the Worker URL and the Netlify URL.
-- Check `netlify.toml` has the `/online-count` redirect.
+- Check that `GET https://my-life-visitor-state.windking566.workers.dev/online-count` returns JSON.
+- Check that the Worker response includes `access-control-allow-origin: https://lovezvv.com` when called with `Origin: https://lovezvv.com`.
 - Check the browser console for failed requests from `/js/visitor-online.js`.
 
 If comments show `评论暂时无法加载。`:
 
-- Check `GET /comments?path=<article-path>` returns JSON.
-- Check `netlify.toml` has the `/comments` redirect.
+- Check `GET https://my-life-visitor-state.windking566.workers.dev/comments?path=<article-path>` returns JSON.
+- Check that the Worker response includes `access-control-allow-origin: https://lovezvv.com` when called from the production site.
 - Check the Worker deployment includes the `article_comments` migration.
 - If the issue only happens after clicking through the site, verify `/js/article-comments.js` listens for `pjax:success`.
 

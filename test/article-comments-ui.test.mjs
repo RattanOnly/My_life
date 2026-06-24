@@ -7,7 +7,7 @@ test('post body hook renders an Article Comment Area only for posts', async () =
 
   assert.match(template, /page\.layout\s*===\s*'post'/);
   assert.match(template, /id="article-comments"/);
-  assert.match(template, /data-endpoint="\/comments"/);
+  assert.match(template, /data-endpoint="https:\/\/my-life-visitor-state\.windking566\.workers\.dev\/comments"/);
   assert.match(template, /我可以叫你什么/);
   assert.match(template, /name="name"[^>]*required/);
   assert.doesNotMatch(template, /name="email"/);
@@ -34,6 +34,7 @@ test('article comments script loads, submits, and renders comments safely', asyn
   assert.doesNotMatch(script, /formData\.get\('email'\)/);
   assert.match(script, /谢谢你光顾我的人生！/);
   assert.match(script, /window\.location\.pathname/);
+  assert.match(script, /data-comment-path-aliases/);
   assert.match(script, /textContent/);
   assert.doesNotMatch(script, /innerHTML/);
   assert.match(script, /catch\s*\(/);

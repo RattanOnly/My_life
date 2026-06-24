@@ -6,6 +6,8 @@ tags:
   - 生活
 categories:
   - 日常
+commentPathAliases:
+  - /2026/01/14/一定要注意身体/
 ---
 >Do not believe pressure turns into motivation,it only turns into medical records
 

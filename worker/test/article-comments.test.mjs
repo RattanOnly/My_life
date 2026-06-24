@@ -140,6 +140,59 @@ test('GET /comments returns Published Comments for one article without private e
   assert.deepEqual(db.calls[0].values, ['/2026/06/05/example-post/']);
 });
 
+test('GET /comments reads English slug comments and old Chinese path aliases together', async () => {
+  const db = createCommentDb([[
+    {
+      id: 1,
+      comment_name: '家人',
+      comment_body: '旧路径也能看到。',
+      created_at: '2026-06-23T12:00:00.000Z'
+    }
+  ]]);
+
+  const response = await worker.fetch(
+    new Request('https://visitor.example.com/comments?path=/2026/06/05/feelings/&aliases=%2F2026%2F06%2F05%2F%E7%9C%9F%E5%81%87%E6%84%9F%E6%83%85%2F'),
+    { VISITOR_DB: db }
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    comments: [{
+      id: 1,
+      name: '家人',
+      body: '旧路径也能看到。',
+      createdAt: '2026-06-23T12:00:00.000Z'
+    }]
+  });
+  assert.match(db.calls[0].sql, /article_path IN \(\?1,\?2\)/i);
+  assert.deepEqual(db.calls[0].values, [
+    '/2026/06/05/feelings/',
+    '/2026/06/05/%E7%9C%9F%E5%81%87%E6%84%9F%E6%83%85/'
+  ]);
+});
+
+test('public Comment endpoints allow the production site origin', async () => {
+  const options = await worker.fetch(new Request('https://visitor.example.com/comments', {
+    method: 'OPTIONS',
+    headers: {
+      origin: 'https://lovezvv.com',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'content-type'
+    }
+  }), { VISITOR_DB: createCommentDb() });
+
+  assert.equal(options.status, 204);
+  assert.equal(options.headers.get('access-control-allow-origin'), 'https://lovezvv.com');
+
+  const db = createCommentDb([[]]);
+  const response = await worker.fetch(new Request('https://visitor.example.com/comments?path=/2026/06/05/example-post/', {
+    headers: { origin: 'https://lovezvv.com' }
+  }), { VISITOR_DB: db });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('access-control-allow-origin'), 'https://lovezvv.com');
+});
+
 test('GET /admin-comments fails closed without a valid Admin Password', async () => {
   const env = { VISITOR_DB: createCommentDb(), ADMIN_PASSWORD: 'secret-pass' };
 

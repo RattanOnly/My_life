@@ -6,6 +6,8 @@ tags:
 - 随想
 categories:
 - 灵魂
+commentPathAliases:
+  - /2026/06/05/真假感情/
 ---
 ![封面](images/Resource/thumb.png)
 

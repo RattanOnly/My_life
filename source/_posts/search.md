@@ -6,6 +6,8 @@ tags:
   - Node.js
 categories:
   - 学习
+commentPathAliases:
+  - /2025/12/01/另一个博客/
 ---
 ### 小记
 

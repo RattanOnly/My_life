@@ -6,6 +6,8 @@ tags:
   - 随想
 categories:
   - 日常
+commentPathAliases:
+  - /2026/06/22/风/
 ---
 
 ![封面](images/Resource/bu-leng-bu-re.jpg)
