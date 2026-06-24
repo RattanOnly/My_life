@@ -9,6 +9,7 @@
   class="visitor-online-count"
   data-endpoint="/online-count"
   data-presence-endpoint="/presence"
+  data-visit-endpoint="/visits"
   data-heartbeat-interval-ms="60000"
   data-status="idle">
   当前在线：<span data-count>--</span> 人

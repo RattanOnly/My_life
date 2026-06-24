@@ -6,7 +6,9 @@
   const countEl = container.querySelector('[data-count]');
   const countEndpoint = container.dataset.endpoint || '/online-count';
   const presenceEndpoint = container.dataset.presenceEndpoint || '/presence';
+  const visitEndpoint = container.dataset.visitEndpoint || '/visits';
   const intervalMs = Math.max(Number(container.dataset.heartbeatIntervalMs) || 60000, 30000);
+  let lastRecordedPath = '';
 
   const markUnavailable = () => {
     container.dataset.status = 'unavailable';
@@ -26,6 +28,27 @@
     });
   };
 
+  const currentPagePath = () => `${window.location.pathname}${window.location.search}`;
+
+  const recordVisit = async () => {
+    const path = currentPagePath();
+    if (!path || path === lastRecordedPath) return;
+
+    const response = await fetch(visitEndpoint, {
+      method: 'POST',
+      credentials: 'omit',
+      keepalive: true,
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ path })
+    });
+
+    if (response.ok) {
+      lastRecordedPath = path;
+    }
+  };
+
   const refreshCount = async () => {
     const response = await fetch(countEndpoint, {
       credentials: 'omit',
@@ -41,6 +64,7 @@
 
   const heartbeat = async () => {
     try {
+      recordVisit().catch(() => {});
       await sendPresence();
       await refreshCount();
     } catch (error) {
