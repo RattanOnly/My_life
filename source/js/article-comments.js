@@ -85,7 +85,6 @@
       const payload = {
         path: articlePath,
         name: String(formData.get('name') || ''),
-        email: String(formData.get('email') || ''),
         body: String(formData.get('body') || '')
       };
 
@@ -113,7 +112,7 @@
 
       form.reset();
       root.dataset.status = 'ready';
-      setStatus('评论已发布。');
+      setStatus('谢谢你光顾我的人生！');
     };
 
     loadComments().catch(() => {

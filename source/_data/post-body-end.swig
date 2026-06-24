@@ -18,15 +18,11 @@
   <div class="article-comments-list" data-comments-list></div>
   <form class="article-comments-form" data-comments-form>
     <label>
-      <span>名字</span>
+      <span>我可以叫你什么</span>
       <input name="name" type="text" maxlength="80" autocomplete="name" required>
     </label>
     <label>
-      <span>邮箱</span>
-      <input name="email" type="email" maxlength="160" autocomplete="email">
-    </label>
-    <label>
-      <span>评论</span>
+      <span>留下你的印记</span>
       <textarea name="body" maxlength="2000" rows="4" required></textarea>
     </label>
     <button type="submit">提交评论</button>
