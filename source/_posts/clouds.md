@@ -23,6 +23,6 @@ commentPathAliases:
 
 害，到头来，写来写去也不知道写了些啥。未来该怎么样呢，我实在不知道。未来该遇到怎么样的人呢，其实我还挺期待的。
 
-![风景](images/Resource/beer.jpg)
+![风景](https://assets.lovezvv.com/blog/images/blog-clouds-beer.webp)
 
-![风景](images/Resource/tunnel.jpg)
+![风景](https://assets.lovezvv.com/blog/images/blog-clouds-tunnel.webp)

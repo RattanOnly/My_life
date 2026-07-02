@@ -9,7 +9,7 @@ categories:
 commentPathAliases:
   - /2026/06/05/真假感情/
 ---
-![封面](images/Resource/thumb.png)
+![封面](https://assets.lovezvv.com/blog/images/blog-feelings-thumb.webp)
 
 ### “真假”感情
 

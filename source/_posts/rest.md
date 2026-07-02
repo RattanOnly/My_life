@@ -9,7 +9,7 @@ categories:
 commentPathAliases:
   - /2026/02/11/如何才算休息/
 ---
-![风景](images/Resource/out.png)
+![风景](https://assets.lovezvv.com/blog/images/blog-rest-out.webp)
 
 >和幸福一样，其实我们并未真正地学习过如何休息。
 

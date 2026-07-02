@@ -43,11 +43,7 @@ Cloudflare Pages hosts the static blog. Production should be built from the GitH
 - build command: `npm run build`
 - build output directory: `public`
 
-Manual test deployments can be made from the repository root:
-
-```bash
-npx wrangler pages deploy public --project-name=mylife-blog-test --branch=main
-```
+Production deploys are triggered from the GitHub `main` branch through the connected Cloudflare Pages project. Manual Pages uploads are reserved for deployment troubleshooting, not the normal publishing path.
 
 The sidecar deploys separately from the Hexo static site:
 

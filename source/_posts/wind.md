@@ -10,7 +10,7 @@ commentPathAliases:
   - /2026/06/22/风/
 ---
 
-![封面](images/Resource/bu-leng-bu-re.jpg)
+![封面](https://assets.lovezvv.com/blog/images/blog-wind-bu-leng-bu-re.webp)
 
 > 幸福就是，在你低落的时候有人陪着你；在你伤心的时候有人安慰你；在你高兴的时候，有人愿意和你一起高兴。
 

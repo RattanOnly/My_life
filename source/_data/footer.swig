@@ -17,7 +17,7 @@
 <script src="/js/theme-effects.js"></script>
 <script src="/js/visitor-online.js"></script>
 <script src="/js/article-comments.js"></script>
-<audio id="site-bgm" src="/music/bgm.mp3" preload="auto" loop style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"></audio>
+<audio id="site-bgm" src="https://assets.lovezvv.com/blog/music/blog-site-global-bgm.mp3" preload="auto" loop style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"></audio>
 <script>
 (() => {
   const themeEl = document.getElementById('site-bgm');

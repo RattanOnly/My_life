@@ -25,7 +25,7 @@ test('Visitor operations documentation covers deployment, configuration, verific
     'GET /online-count',
     'anonymous browser Visitor ID',
     'wrangler deploy --config worker/wrangler.toml',
-    'wrangler pages deploy public --project-name=mylife-blog-test --branch=main',
+    'GitHub `main` branch',
     'd1 migrations apply my-life-visitor-state --remote',
     'ADMIN_PASSWORD',
     '/comments',

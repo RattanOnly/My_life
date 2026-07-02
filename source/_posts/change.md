@@ -29,6 +29,6 @@ commentPathAliases:
 
 > 很多年以后，我会坐在老家门口的晃晃悠悠长椅上，眼睛朦朦胧胧地看着一群人围在自己旁边，等着爸爸妈妈来接我，就像儿时一样。
 
-![封面](images/Resource/me.jpg)
+![封面](https://assets.lovezvv.com/blog/images/blog-change-me.webp)
 
-![封面](images/Resource/life.jpg)
+![封面](https://assets.lovezvv.com/blog/images/blog-change-life.webp)

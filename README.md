@@ -7,7 +7,8 @@ This is a personal blog built with Hexo. It keeps my writing, life notes, theme 
 ## 项目内容
 
 - `source/_posts/`：博客文章内容
-- `source/images/`、`source/music/`、`source/video/`：站点使用的媒体资源
+- `source/images/`、`source/music/`、`source/video/`：主题图标、头像、视频等仍随站点构建的本地媒体资源
+- `https://assets.lovezvv.com/blog/`：文章图片和博客音乐使用的 Cloudflare R2 公共资源域
 - `source/_data/`：主题覆盖与自定义片段
 - `scripts/`、`tools/`：本地开发、构建和环境辅助脚本
 - `themes/next/`：基于 NexT 主题的站点外观
@@ -60,11 +61,7 @@ npm run clean
 npm run build
 ```
 
-如果需要手动上传测试版本，可以使用 Wrangler：
-
-```bash
-npx wrangler pages deploy public --project-name=mylife-blog-test --branch=main
-```
+生产站点由 Cloudflare Pages 连接 GitHub 自动构建；除非排查发布问题，不建议手动上传生产版本。
 
 ## 维护说明
 

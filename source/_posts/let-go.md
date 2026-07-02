@@ -44,13 +44,13 @@ commentPathAliases:
 
 PS：片刻瞬间
 
-![图片](images/Resource/Star-boy.png "年会得到的好看的星星人")
-![图片](images/Resource/Kapibala.png)
-![图片](images/Resource/happy.png)
-![图片](images/Resource/Million.png)
-![图片](images/Resource/sign-up.png)
-![图片](images/Resource/Life.png)
-![图片](images/Resource/gate.png)
-![图片](images/Resource/Bridge.png)
-![图片](images/Resource/Food.png)
-![图片](images/Resource/eat.png)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-star-boy.webp "年会得到的好看的星星人")
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-kapibala.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-happy.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-million.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-sign-up.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-life.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-gate.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-bridge.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-food.webp)
+![图片](https://assets.lovezvv.com/blog/images/blog-let-go-eat.webp)

@@ -8,7 +8,7 @@ tags:
 categories:
   - 灵魂
 musicList:
-  - url: /music/me.mp3
+  - url: https://assets.lovezvv.com/blog/music/blog-me-me.mp3
 ---
 
 嗨，你好👋！
@@ -77,12 +77,12 @@ musicList:
 
 谢谢你光顾我平凡的人生。
 
-![生活碎片](images/Resource/dragon.jpg)
+![生活碎片](https://assets.lovezvv.com/blog/images/blog-me-dragon.webp)
 
-![生活碎片](images/Resource/food_yeah.jpg)
+![生活碎片](https://assets.lovezvv.com/blog/images/blog-me-food_yeah.webp)
 
-![生活碎片](images/Resource/view.jpg)
+![生活碎片](https://assets.lovezvv.com/blog/images/blog-me-view.webp)
 
-![生活碎片](images/Resource/fruit.jpg)
+![生活碎片](https://assets.lovezvv.com/blog/images/blog-me-fruit.webp)
 
-![生活碎片](images/Resource/catty.jpg)
+![生活碎片](https://assets.lovezvv.com/blog/images/blog-me-catty.webp)
