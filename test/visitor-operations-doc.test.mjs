@@ -19,14 +19,15 @@ test('Visitor operations documentation covers deployment, configuration, verific
   }
 
   for (const requiredText of [
-    'Public pages call the Worker directly',
-    'https://my-life-visitor-state.windking566.workers.dev/comments',
-    'https://my-life-visitor-state.windking566.workers.dev/online-count',
+    'Cloudflare Pages hosts the static blog',
+    'Cloudflare Worker Routes own same-origin Visitor state API paths',
+    'GET /comments?path=/2026/06/05/example-post/',
+    'GET /online-count',
     'anonymous browser Visitor ID',
     'wrangler deploy --config worker/wrangler.toml',
+    'wrangler pages deploy public --project-name=mylife-blog-test --branch=main',
     'd1 migrations apply my-life-visitor-state --remote',
     'ADMIN_PASSWORD',
-    'netlify.toml',
     '/comments',
     '/online-count',
     '/admin/',
@@ -45,5 +46,6 @@ test('Visitor operations documentation covers deployment, configuration, verific
     assert.match(doc, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 
-  assert.doesNotMatch(doc, /Public pages call same-origin paths, and Netlify forwards them to the Worker/);
+  assert.doesNotMatch(doc, /Netlify/i);
+  assert.doesNotMatch(doc, /netlify\.toml/);
 });

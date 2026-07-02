@@ -7,7 +7,8 @@ test('post body hook renders an Article Comment Area only for posts', async () =
 
   assert.match(template, /page\.layout\s*===\s*'post'/);
   assert.match(template, /id="article-comments"/);
-  assert.match(template, /data-endpoint="https:\/\/my-life-visitor-state\.windking566\.workers\.dev\/comments"/);
+  assert.match(template, /data-endpoint="\/comments"/);
+  assert.doesNotMatch(template, /workers\.dev/);
   assert.match(template, /我可以叫你什么/);
   assert.match(template, /name="name"[^>]*required/);
   assert.doesNotMatch(template, /name="email"/);

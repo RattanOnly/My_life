@@ -19,7 +19,6 @@ const PUBLIC_CORS_PATHS = new Set(['/visits', '/presence', '/online-count', '/co
 const PUBLIC_CORS_ORIGINS = new Set([
   'https://lovezvv.com',
   'https://www.lovezvv.com',
-  'https://zw1443.netlify.app',
   'http://localhost:4000',
   'http://127.0.0.1:4000'
 ]);

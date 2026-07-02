@@ -7,9 +7,9 @@
 <div
   id="visitor-online-count"
   class="visitor-online-count"
-  data-endpoint="https://my-life-visitor-state.windking566.workers.dev/online-count"
-  data-presence-endpoint="https://my-life-visitor-state.windking566.workers.dev/presence"
-  data-visit-endpoint="https://my-life-visitor-state.windking566.workers.dev/visits"
+  data-endpoint="/online-count"
+  data-presence-endpoint="/presence"
+  data-visit-endpoint="/visits"
   data-heartbeat-interval-ms="60000"
   data-status="idle">
   当前在线：<span data-count>--</span> 人

@@ -3,6 +3,70 @@ main = "src/index.mjs"
 compatibility_date = "2026-06-23"
 workers_dev = true
 
+[[routes]]
+pattern = "lovezvv.com/comments*"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/presence"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/online-count"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/visits"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/admin-data"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/admin-comments*"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/admin-owner-ip-marks*"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/admin-visits"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/comments*"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/presence"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/online-count"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/visits"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/admin-data"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/admin-comments*"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/admin-owner-ip-marks*"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/admin-visits"
+zone_name = "lovezvv.com"
+
 [triggers]
 crons = ["17 3 * * *"]
 

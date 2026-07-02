@@ -12,7 +12,7 @@
 <section
   id="article-comments"
   class="article-comments"
-  data-endpoint="https://my-life-visitor-state.windking566.workers.dev/comments"
+  data-endpoint="/comments"
   data-comment-path-aliases='{% if page.commentPathAliases %}{{ page.commentPathAliases | dump | safe }}{% else %}[]{% endif %}'
   data-status="idle">
   <h3 class="article-comments-title">评论</h3>

@@ -10,3 +10,4 @@ public/
 .dev.vars
 _multiconfig.yml
 .env
+netlify.toml

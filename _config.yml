@@ -98,13 +98,6 @@ ignore:
 ## Themes: https://hexo.io/themes/
 theme: next
 
-# Deployment
-## Docs: https://hexo.io/docs/one-command-deployment
-deploy:
-  type: git
-  repo: git@github.com:RattanOnly/RattanOnly.git
-  branch: main
-
 # Search data for local search popup.
 # Requires `hexo-generator-searchdb`.
 search:

@@ -7,9 +7,10 @@ test('footer contains an Online Visitor Count container and client config', asyn
 
   assert.match(footer, /id="visitor-online-count"/);
   assert.match(footer, /当前在线：/);
-  assert.match(footer, /data-endpoint="https:\/\/my-life-visitor-state\.windking566\.workers\.dev\/online-count"/);
-  assert.match(footer, /data-presence-endpoint="https:\/\/my-life-visitor-state\.windking566\.workers\.dev\/presence"/);
-  assert.match(footer, /data-visit-endpoint="https:\/\/my-life-visitor-state\.windking566\.workers\.dev\/visits"/);
+  assert.match(footer, /data-endpoint="\/online-count"/);
+  assert.match(footer, /data-presence-endpoint="\/presence"/);
+  assert.match(footer, /data-visit-endpoint="\/visits"/);
+  assert.doesNotMatch(footer, /workers\.dev/);
   assert.match(footer, /data-heartbeat-interval-ms="60000"/);
   assert.match(footer, /\/js\/visitor-online\.js/);
 });

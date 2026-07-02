@@ -47,17 +47,23 @@ npm run clean
 
 ## 部署
 
-项目使用 Hexo 的 git deploy 流程。部署目标在 `_config.yml` 的 `deploy` 字段中配置。
+项目使用 Cloudflare Pages 托管静态站点。正式发布建议在 Cloudflare Pages 里连接 GitHub 仓库，并设置：
 
-```bash
-npm run deploy
-```
+- 构建命令：`npm run build`
+- 输出目录：`public`
+- 生产分支：`main`
 
-部署前建议先执行：
+本地发布前建议先执行：
 
 ```bash
 npm run clean
 npm run build
+```
+
+如果需要手动上传测试版本，可以使用 Wrangler：
+
+```bash
+npx wrangler pages deploy public --project-name=mylife-blog-test --branch=main
 ```
 
 ## 维护说明

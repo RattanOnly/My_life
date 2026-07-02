@@ -5,7 +5,6 @@
   "scripts": {
     "build": "./tools/hexo-env.sh generate",
     "clean": "./tools/hexo-env.sh clean",
-    "deploy": "./tools/hexo-env.sh deploy",
     "test": "node --test",
     "test:worker": "node --test worker/test/*.test.mjs",
     "worker:dev": "wrangler dev --config worker/wrangler.toml",
@@ -21,7 +20,6 @@
   "dependencies": {
     "hexo": "^8.0.0",
     "hexo-algoliasearch": "^2.0.1",
-    "hexo-deployer-git": "^4.0.0",
     "hexo-generator-archive": "^2.0.0",
     "hexo-generator-category": "^2.0.0",
     "hexo-generator-index": "^4.0.0",

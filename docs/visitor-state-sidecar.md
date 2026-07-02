@@ -1,6 +1,6 @@
 # Visitor State Sidecar
 
-The Visitor state sidecar is a Cloudflare Worker with a D1 binding. It exists beside the Hexo/NexT static blog so Visitor state can be added without changing the static publishing workflow.
+The Visitor state sidecar is a Cloudflare Worker with a D1 binding. It exists beside the Hexo/NexT static blog so Visitor Logs, Online Visitor Count, Published Comments, and owner-facing admin data can be added without turning the blog into a dynamic application.
 
 ## Local Checks
 
@@ -38,9 +38,18 @@ npm exec -- wrangler --config worker/wrangler.toml d1 migrations apply my-life-v
 
 ## Deployment
 
-The sidecar deploys separately from the Hexo static site.
+Cloudflare Pages hosts the static blog. Production should be built from the GitHub `main` branch with:
 
-Deploy the Worker from the repository root:
+- build command: `npm run build`
+- build output directory: `public`
+
+Manual test deployments can be made from the repository root:
+
+```bash
+npx wrangler pages deploy public --project-name=mylife-blog-test --branch=main
+```
+
+The sidecar deploys separately from the Hexo static site:
 
 ```bash
 npx wrangler deploy --config worker/wrangler.toml
@@ -53,13 +62,7 @@ cd worker
 npx wrangler deploy --config wrangler.toml
 ```
 
-The deployed Worker URL currently used by the static site is:
-
-```text
-https://my-life-visitor-state.windking566.workers.dev
-```
-
-The static blog is deployed by pushing `main` to GitHub. Netlify reads `netlify.toml` and builds the Hexo site. Public visitor/comment requests now call the Worker directly so the Worker can see the visitor network IP instead of a Netlify proxy IP; the Netlify proxy rules remain as compatibility and for owner-facing admin paths.
+Cloudflare Worker Routes own same-origin Visitor state API paths on `lovezvv.com` and `www.lovezvv.com`. The route list lives in `worker/wrangler.toml`.
 
 ## D1 Binding
 
@@ -97,27 +100,24 @@ The owner IP mark migration creates `owner_ip_marks` so the owner can label know
 
 The presence migration creates `visitor_presence` for the Online Visitor Count.
 
-The comment migration creates `article_comments` for Published Comments, including private Comment Email storage for owner-facing admin use.
+The comment migration creates `article_comments` for Published Comments.
 
 ## Static Blog Configuration
 
-Public pages call the Worker directly through the deployed Worker URL:
+Public pages and owner admin pages call same-origin API paths. Cloudflare routes these paths to the Worker before they reach the static Pages site:
 
-- `https://my-life-visitor-state.windking566.workers.dev/visits`
-- `https://my-life-visitor-state.windking566.workers.dev/presence`
-- `https://my-life-visitor-state.windking566.workers.dev/online-count`
-- `https://my-life-visitor-state.windking566.workers.dev/comments`
-
-The Worker allows CORS for the production site domains and local Hexo development origins. This keeps public Visitor Logs, Online Visitor Count, and Published Comments off the Netlify proxy path.
-
-Owner-facing admin pages still call same-origin paths so Admin Password requests stay under the site domain, and Netlify forwards those paths to the Worker:
-
-- `/admin-data`
-- `/admin-comments`
-- `/admin-comments/:id`
-- `/admin-owner-ip-marks`
-- `/admin-owner-ip-marks/:ipAddress`
-- `/admin-visits`
+- `POST /visits`
+- `POST /presence`
+- `GET /online-count`
+- `GET /comments?path=/2026/06/05/example-post/`
+- `POST /comments`
+- `GET /admin-data`
+- `GET /admin-comments`
+- `DELETE /admin-comments/:id`
+- `GET /admin-owner-ip-marks`
+- `POST /admin-owner-ip-marks`
+- `DELETE /admin-owner-ip-marks/:ipAddress`
+- `DELETE /admin-visits`
 
 The static site pieces are:
 
@@ -139,7 +139,7 @@ npm run build
 The public write endpoint is:
 
 ```text
-POST https://my-life-visitor-state.windking566.workers.dev/visits
+POST /visits
 ```
 
 Request body:
@@ -165,7 +165,7 @@ This keeps regular visits to one D1 write each. Retention cleanup runs separatel
 The public heartbeat endpoint is:
 
 ```text
-POST https://my-life-visitor-state.windking566.workers.dev/presence
+POST /presence
 ```
 
 It updates the Visitor's current presence without writing to permanent Visitor Logs. The browser sends an anonymous browser Visitor ID stored in local storage. The Worker hashes that ID before writing `visitor_presence`, so a single browser stays one online visitor even if the network IP changes during the session.
@@ -173,7 +173,7 @@ It updates the Visitor's current presence without writing to permanent Visitor L
 The public count endpoint is:
 
 ```text
-GET https://my-life-visitor-state.windking566.workers.dev/online-count
+GET /online-count
 ```
 
 Response body:
@@ -195,7 +195,7 @@ Article pages include an Article Comment Area at the bottom of the post body and
 The public read endpoint is:
 
 ```text
-GET https://my-life-visitor-state.windking566.workers.dev/comments?path=/2026/06/05/example-post/
+GET /comments?path=/2026/06/05/example-post/
 ```
 
 Response body:
@@ -216,7 +216,7 @@ Response body:
 The public write endpoint is:
 
 ```text
-POST https://my-life-visitor-state.windking566.workers.dev/comments
+POST /comments
 ```
 
 Request body:
@@ -225,14 +225,13 @@ Request body:
 {
   "path": "/2026/06/05/example-post/",
   "name": "Visitor",
-  "email": "visitor@example.com",
   "body": "A Published Comment."
 }
 ```
 
-`name` and `body` are required. `email` is optional and stored only as a private owner-facing contact field for future admin views. Public comment reads never return Comment Email.
+`name` and `body` are required. Public comment reads expose only Published Comment id, Comment Name, comment body, and created time.
 
-Anonymous Comments become Published Comments immediately. The first version intentionally does not add external account login, GitHub-based commenting, CAPTCHA, Turnstile, or manual moderation. If the sidecar is unavailable, the article remains readable and the comment area shows a visible failure state.
+Anonymous Comments become Published Comments immediately. The first version intentionally does not add external account login, CAPTCHA, Turnstile, or manual moderation. If the sidecar is unavailable, the article remains readable and the comment area shows a visible failure state.
 
 The Open Commenting service is implemented by the Worker and D1. There is no third-party comment provider to configure. The required endpoints are `/comments` for public list/create and `/admin-comments` for owner-facing list/delete.
 
@@ -252,8 +251,8 @@ The value is not committed to source control. The admin page sends it as a Beare
 Verify after deployment:
 
 ```bash
-curl -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-data
-curl -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-comments
+curl -H "Authorization: Bearer <password>" https://lovezvv.com/admin-data
+curl -H "Authorization: Bearer <password>" https://lovezvv.com/admin-comments
 ```
 
 ## Visitor Admin Page
@@ -261,7 +260,7 @@ curl -H "Authorization: Bearer <password>" https://zw1443.netlify.app/admin-comm
 The Visitor Admin Page is available at:
 
 ```text
-https://zw1443.netlify.app/admin/
+https://lovezvv.com/admin/
 ```
 
 It is not linked from the public navigation. The page shows no Visitor Logs or comments until the correct Admin Password is submitted. On a trusted browser, successful login saves the Admin Password in local storage so the Visitor Admin Page can reopen without re-entering it.
@@ -270,7 +269,7 @@ After successful authentication it shows:
 
 - current Online Visitor Count
 - latest 50 Visitor Logs with Visitor or local owner label, coarse Visitor Location, access time, Visited Page, and Visitor Device Summary
-- recent Published Comments with article path, Comment Name, optional Comment Email, body, created time, and delete action
+- recent Published Comments with article path, Comment Name, body, created time, and delete action
 
 Refresh reloads the latest admin data without a browser refresh. Logout forgets the saved Admin Password and returns to the login form. Mark Local labels an owner IP as local; the same row can be unmarked later. Clear Visitor Logs removes Visitor Logs without deleting comments or Online Visitor Count state.
 
@@ -287,23 +286,13 @@ npm run build
 git diff --check
 ```
 
-Verify the deployed Worker:
+Verify the deployed same-origin Worker Routes:
 
 ```bash
-curl https://my-life-visitor-state.windking566.workers.dev/health
-curl https://my-life-visitor-state.windking566.workers.dev/online-count
-curl -H "Origin: https://lovezvv.com" https://my-life-visitor-state.windking566.workers.dev/online-count
-curl -H "Authorization: Bearer <password>" https://my-life-visitor-state.windking566.workers.dev/admin-data
-curl -H "Authorization: Bearer <password>" https://my-life-visitor-state.windking566.workers.dev/admin-comments
-curl -X POST -H "Authorization: Bearer <password>" -H "content-type: application/json" -d '{"ipAddress":"203.0.113.21"}' https://my-life-visitor-state.windking566.workers.dev/admin-owner-ip-marks
-```
-
-Verify the Netlify site:
-
-```bash
-curl -I https://lovezvv.com/admin/
+curl https://lovezvv.com/online-count
 curl -H "Authorization: Bearer <password>" https://lovezvv.com/admin-data
 curl -H "Authorization: Bearer <password>" https://lovezvv.com/admin-comments
+curl -X POST -H "Authorization: Bearer <password>" -H "content-type: application/json" -d '{"ipAddress":"203.0.113.21"}' https://lovezvv.com/admin-owner-ip-marks
 curl -X DELETE -H "Authorization: Bearer <password>" https://lovezvv.com/admin-visits
 ```
 
@@ -321,14 +310,13 @@ Browser checks:
 
 If the Footer Online Count stays as `--`:
 
-- Check that `GET https://my-life-visitor-state.windking566.workers.dev/online-count` returns JSON.
-- Check that the Worker response includes `access-control-allow-origin: https://lovezvv.com` when called with `Origin: https://lovezvv.com`.
+- Check that `GET /online-count` returns JSON.
 - Check the browser console for failed requests from `/js/visitor-online.js`.
+- Confirm `worker/wrangler.toml` routes `lovezvv.com/online-count` and `www.lovezvv.com/online-count` to the Worker.
 
 If comments show `评论暂时无法加载。`:
 
-- Check `GET https://my-life-visitor-state.windking566.workers.dev/comments?path=<article-path>` returns JSON.
-- Check that the Worker response includes `access-control-allow-origin: https://lovezvv.com` when called from the production site.
+- Check `GET /comments?path=<article-path>` returns JSON.
 - Check the Worker deployment includes the `article_comments` migration.
 - If the issue only happens after clicking through the site, verify `/js/article-comments.js` listens for `pjax:success`.
 
@@ -353,6 +341,6 @@ Visitor Log Retention is 30 days. The scheduled Worker cleanup deletes older Vis
 
 The public Footer Online Count exposes only an aggregate Online Visitor Count. It does not expose IP addresses, Visitor Logs, visitor identity, or device details.
 
-Public comment reads expose Published Comment id, Comment Name, comment body, and created time. Public comment reads never expose Comment Email.
+Public comment reads expose Published Comment id, Comment Name, comment body, and created time.
 
-The admin comment view may show Comment Email because it is private owner-facing data. Do not share screenshots or exports of the admin page publicly.
+Do not share screenshots or exports of the admin page publicly.
