@@ -96,7 +96,7 @@ The owner IP mark migration creates `owner_ip_marks` so the owner can label know
 
 The presence migration creates `visitor_presence` for the Online Visitor Count.
 
-The comment migration creates `article_comments` for Published Comments.
+The comment migration creates `article_comments` for Published Comments. Later migrations add one-level Comment Reply support and Visitor Comment Deletion fields. Apply all pending migrations before deploying Worker code that reads or writes those fields.
 
 ## Static Blog Configuration
 
@@ -225,11 +225,15 @@ Request body:
 }
 ```
 
-`name` and `body` are required. Public comment reads expose only Published Comment id, Comment Name, comment body, and created time.
+`name` and `body` are required. Public comment reads expose only Published Comment id, top-level Comment Reply parent id, Comment Name, comment body, created time, and deleted placeholder state.
 
 Anonymous Comments become Published Comments immediately. The first version intentionally does not add external account login, CAPTCHA, Turnstile, or manual moderation. If the sidecar is unavailable, the article remains readable and the comment area shows a visible failure state.
 
-The Open Commenting service is implemented by the Worker and D1. There is no third-party comment provider to configure. The required endpoints are `/comments` for public list/create and `/admin-comments` for owner-facing list/delete.
+The Open Commenting service is implemented by the Worker and D1. There is no third-party comment provider to configure. The required endpoints are `/comments` for public list/create/delete and `/admin-comments` for owner-facing list/delete.
+
+Visitors can reply to a top-level Published Comment. Replies stay one level deep; replying to a reply attaches the new Comment Reply to that reply's top-level parent.
+
+After a Visitor creates a comment, the Worker returns a short-lived delete token. The browser stores it in local storage and shows a delete action until the Comment Deletion Window expires. If a deleted comment has replies, the Worker keeps a `Deleted Comment` placeholder so the conversation context does not collapse.
 
 ## Admin Password
 
@@ -264,8 +268,8 @@ It is not linked from the public navigation. The page shows no Visitor Logs or c
 After successful authentication it shows:
 
 - current Online Visitor Count
-- latest 50 Visitor Logs with Visitor or local owner label, coarse Visitor Location, access time, Visited Page, and Visitor Device Summary
-- recent Published Comments with article path, Comment Name, body, created time, and delete action
+- paginated Visitor Logs with date, Visitor or local owner label, coarse Visitor Location, Visited Page, Visitor Device Summary, and owner/local filters
+- paginated Published Comments with date, article path, keyword filters, Comment Name, body, created time, and delete action
 
 Refresh reloads the latest admin data without a browser refresh. Logout forgets the saved Admin Password and returns to the login form. Mark Local labels an owner IP as local; the same row can be unmarked later. Clear Visitor Logs removes Visitor Logs without deleting comments or Online Visitor Count state.
 

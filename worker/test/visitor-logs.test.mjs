@@ -103,6 +103,7 @@ test('GET /admin-data fails closed without a valid Admin Password', async () => 
 test('GET /admin-data returns recent Visitor Logs and Online Visitor Count for the owner', async () => {
   const db = createRecordingDb([
     { count: 2 },
+    { total_count: 1 },
     [{
       id: 7,
       ip_address: '203.0.113.21',
@@ -129,11 +130,77 @@ test('GET /admin-data returns recent Visitor Logs and Online Visitor Count for t
       visitorDeviceSummary: 'Chrome on macOS',
       visitorLocation: '美国 · California · San Francisco',
       isOwnerVisitor: true
-    }]
+    }],
+    visitorLogsPagination: {
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1
+    }
   });
-  assert.match(db.calls[1].sql, /LEFT JOIN owner_ip_marks/i);
-  assert.match(db.calls[1].sql, /visitor_location/i);
-  assert.match(db.calls[1].sql, /LIMIT 50/i);
+  assert.match(db.calls[1].sql, /COUNT\(\*\)\s+AS\s+total_count/i);
+  assert.match(db.calls[2].sql, /LEFT JOIN owner_ip_marks/i);
+  assert.match(db.calls[2].sql, /visitor_location/i);
+  assert.match(db.calls[2].sql, /LIMIT\s+\?/i);
+  assert.match(db.calls[2].sql, /OFFSET\s+\?/i);
+  assert.deepEqual(db.calls[2].values, [20, 0]);
+});
+
+test('GET /admin-data paginates and filters Visitor Logs for the owner', async () => {
+  const db = createRecordingDb([
+    { count: 3 },
+    { total_count: 27 },
+    [{
+      id: 9,
+      ip_address: '198.51.100.9',
+      visited_at: '2026-06-23T12:00:00.000Z',
+      visited_page: '/2026/06/05/feelings/',
+      visitor_device_summary: 'Safari on iOS',
+      visitor_location: '中国 · Jiangsu · Nanjing',
+      is_owner_visitor: 0
+    }]
+  ]);
+
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-data?visitorPage=2&visitorPageSize=20&visitorOwner=visitor&visitorPageKeyword=feelings&visitorFrom=2026-06-01&visitorTo=2026-06-30', {
+    headers: { authorization: 'Bearer secret-pass' }
+  }), { VISITOR_DB: db, ADMIN_PASSWORD: 'secret-pass' });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    onlineCount: 3,
+    visitorLogs: [{
+      id: 9,
+      ipAddress: '198.51.100.9',
+      visitedAt: '2026-06-23T12:00:00.000Z',
+      visitedPage: '/2026/06/05/feelings/',
+      visitorDeviceSummary: 'Safari on iOS',
+      visitorLocation: '中国 · Jiangsu · Nanjing',
+      isOwnerVisitor: false
+    }],
+    visitorLogsPagination: {
+      page: 2,
+      pageSize: 20,
+      total: 27,
+      totalPages: 2
+    }
+  });
+
+  assert.match(db.calls[1].sql, /visitor_logs\.visited_at\s+>=\s+\?1/i);
+  assert.match(db.calls[1].sql, /visitor_logs\.visited_at\s+<\s+\?2/i);
+  assert.match(db.calls[1].sql, /visitor_logs\.visited_page\s+LIKE\s+\?3/i);
+  assert.match(db.calls[1].sql, /owner_ip_marks\.ip_address\s+IS\s+NULL/i);
+  assert.deepEqual(db.calls[1].values, [
+    '2026-06-01T00:00:00.000Z',
+    '2026-07-01T00:00:00.000Z',
+    '%feelings%'
+  ]);
+  assert.deepEqual(db.calls[2].values, [
+    '2026-06-01T00:00:00.000Z',
+    '2026-07-01T00:00:00.000Z',
+    '%feelings%',
+    20,
+    20
+  ]);
 });
 
 test('scheduled cleanup removes Visitor Logs older than 30 days', async () => {

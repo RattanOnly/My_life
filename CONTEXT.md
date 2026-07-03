@@ -45,8 +45,20 @@ The Online Visitor Count shown in the site footer.
 _Avoid_: Sidebar online count, article online count
 
 **Visitor Admin Page**:
-A private owner-facing page for viewing Visitor Logs and the current Online Visitor Count.
+A private owner-facing page for viewing Visitor Logs, checking the current Online Visitor Count, and managing Published Comments.
 _Avoid_: Public stats page, full admin console
+
+**Comment Management**:
+Owner-facing review and removal of Published Comments from the Visitor Admin Page.
+_Avoid_: Comment moderation queue, public comment area
+
+**Visitor Log Filter**:
+An owner-selected condition that narrows which Visitor Logs are shown on the Visitor Admin Page.
+_Avoid_: Public analytics segment, visitor tracking profile
+
+**Comment Filter**:
+An owner-selected condition that narrows which Published Comments are shown for Comment Management.
+_Avoid_: Spam rule, moderation policy
 
 **Admin Data Refresh**:
 An owner action that reloads the Visitor Admin Page data without leaving the current page or re-entering the Admin Password.
@@ -68,9 +80,25 @@ _Avoid_: Logged-in comment, account comment
 A comment that is visible on the blog immediately after submission.
 _Avoid_: Pending comment, moderated comment
 
+**Comment Reply**:
+A Published Comment written as a direct response to another Published Comment in the Article Comment Area.
+_Avoid_: Nested thread, private reply
+
+**Deleted Comment**:
+A comment whose original public content is no longer shown while any existing Comment Replies can remain visible for conversation context.
+_Avoid_: Hidden thread, deleted reply chain
+
 **Open Commenting**:
 The blog's comment policy where Visitors can submit Anonymous Comments that become Published Comments without login, manual review, or anti-spam friction.
 _Avoid_: Moderated commenting, gated commenting
+
+**Visitor Comment Deletion**:
+A Visitor action that removes their own recently submitted Published Comment without signing in or asking the owner.
+_Avoid_: Public comment deletion, admin comment deletion
+
+**Comment Deletion Window**:
+The short period after publishing an Anonymous Comment during which the submitting Visitor can remove it from public display.
+_Avoid_: Permanent self-service deletion, moderation period
 
 **Comment Name**:
 The required display name a Visitor provides when submitting an Anonymous Comment.

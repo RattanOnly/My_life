@@ -15,6 +15,12 @@ const MAX_VISITOR_ID_LENGTH = 160;
 const MAX_COMMENT_NAME_LENGTH = 80;
 const MAX_COMMENT_EMAIL_LENGTH = 160;
 const MAX_COMMENT_BODY_LENGTH = 2000;
+const DEFAULT_VISITOR_LOG_PAGE_SIZE = 20;
+const MAX_VISITOR_LOG_PAGE_SIZE = 100;
+const DEFAULT_COMMENT_PAGE_SIZE = 20;
+const MAX_COMMENT_PAGE_SIZE = 100;
+const COMMENT_DELETION_WINDOW_MINUTES = 10;
+const COMMENT_DELETE_TOKEN_BYTES = 24;
 const PUBLIC_CORS_PATHS = new Set(['/visits', '/presence', '/online-count', '/comments']);
 const PUBLIC_CORS_ORIGINS = new Set([
   'https://lovezvv.com',
@@ -65,11 +71,15 @@ function publicCorsHeaders(request) {
 
   return {
     'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400',
     vary: 'Origin'
   };
+}
+
+function isPublicCorsPath(pathname) {
+  return PUBLIC_CORS_PATHS.has(pathname) || /^\/comments\/\d+$/.test(pathname);
 }
 
 function withPublicCors(response, request) {
@@ -218,6 +228,146 @@ function cleanIpAddress(value) {
   return cleanText(value, 80);
 }
 
+function readCommentId(value) {
+  const number = Number.parseInt(value, 10);
+  return Number.isInteger(number) && number > 0 ? number : 0;
+}
+
+function createDeleteToken() {
+  const bytes = new Uint8Array(COMMENT_DELETE_TOKEN_BYTES);
+  crypto.getRandomValues(bytes);
+
+  return [...bytes]
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function readPositiveInteger(value, fallback, maxValue) {
+  const number = Number.parseInt(value, 10);
+  if (!Number.isInteger(number) || number <= 0) return fallback;
+  return maxValue ? Math.min(number, maxValue) : number;
+}
+
+function parseDateOnly(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function readVisitorLogQuery(url) {
+  const pageSize = readPositiveInteger(
+    url.searchParams.get('visitorPageSize'),
+    DEFAULT_VISITOR_LOG_PAGE_SIZE,
+    MAX_VISITOR_LOG_PAGE_SIZE
+  );
+  const page = readPositiveInteger(url.searchParams.get('visitorPage'), 1);
+  const owner = cleanText(url.searchParams.get('visitorOwner'), 20);
+  const pageKeyword = cleanText(url.searchParams.get('visitorPageKeyword'), MAX_VISITED_PAGE_LENGTH);
+  const fromDate = parseDateOnly(url.searchParams.get('visitorFrom'));
+  const toDate = parseDateOnly(url.searchParams.get('visitorTo'));
+
+  return {
+    page,
+    pageSize,
+    owner: ['owner', 'visitor'].includes(owner) ? owner : '',
+    pageKeyword,
+    from: fromDate ? fromDate.toISOString() : '',
+    to: toDate ? new Date(toDate.getTime() + 24 * 60 * 60 * 1000).toISOString() : ''
+  };
+}
+
+function buildVisitorLogFilter(query) {
+  const clauses = [];
+  const values = [];
+
+  if (query.from) {
+    values.push(query.from);
+    clauses.push(`visitor_logs.visited_at >= ?${values.length}`);
+  }
+
+  if (query.to) {
+    values.push(query.to);
+    clauses.push(`visitor_logs.visited_at < ?${values.length}`);
+  }
+
+  if (query.pageKeyword) {
+    values.push(`%${query.pageKeyword}%`);
+    clauses.push(`visitor_logs.visited_page LIKE ?${values.length}`);
+  }
+
+  if (query.owner === 'owner') {
+    clauses.push('owner_ip_marks.ip_address IS NOT NULL');
+  } else if (query.owner === 'visitor') {
+    clauses.push('owner_ip_marks.ip_address IS NULL');
+  }
+
+  return {
+    whereSql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
+    values
+  };
+}
+
+function readCommentQuery(url) {
+  const pageSize = readPositiveInteger(
+    url.searchParams.get('commentPageSize'),
+    DEFAULT_COMMENT_PAGE_SIZE,
+    MAX_COMMENT_PAGE_SIZE
+  );
+  const page = readPositiveInteger(url.searchParams.get('commentPage'), 1);
+  const articlePathKeyword = cleanText(
+    url.searchParams.get('commentArticlePathKeyword'),
+    MAX_VISITED_PAGE_LENGTH
+  );
+  const keyword = cleanText(url.searchParams.get('commentKeyword'), 200);
+  const fromDate = parseDateOnly(url.searchParams.get('commentFrom'));
+  const toDate = parseDateOnly(url.searchParams.get('commentTo'));
+
+  return {
+    page,
+    pageSize,
+    articlePathKeyword,
+    keyword,
+    from: fromDate ? fromDate.toISOString() : '',
+    to: toDate ? new Date(toDate.getTime() + 24 * 60 * 60 * 1000).toISOString() : ''
+  };
+}
+
+function buildCommentFilter(query) {
+  const clauses = [];
+  const values = [];
+
+  if (query.from) {
+    values.push(query.from);
+    clauses.push(`created_at >= ?${values.length}`);
+  }
+
+  if (query.to) {
+    values.push(query.to);
+    clauses.push(`created_at < ?${values.length}`);
+  }
+
+  if (query.articlePathKeyword) {
+    values.push(`%${query.articlePathKeyword}%`);
+    clauses.push(`article_path LIKE ?${values.length}`);
+  }
+
+  if (query.keyword) {
+    values.push(`%${query.keyword}%`);
+    const namePlaceholder = `?${values.length}`;
+    values.push(`%${query.keyword}%`);
+    const bodyPlaceholder = `?${values.length}`;
+    clauses.push(`(comment_name LIKE ${namePlaceholder} OR comment_body LIKE ${bodyPlaceholder})`);
+  }
+
+  return {
+    whereSql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
+    values
+  };
+}
+
 function summarizeBrowser(userAgent) {
   if (/Edg\//.test(userAgent)) return 'Edge';
   if (/Chrome\//.test(userAgent) && !/Chromium/.test(userAgent)) return 'Chrome';
@@ -337,7 +487,20 @@ async function handleAdminData(request, env) {
   if (!isAuthorizedAdmin(request, env)) return unauthorized();
 
   const db = requireVisitorDb(env);
+  const url = new URL(request.url);
+  const visitorLogQuery = readVisitorLogQuery(url);
+  const visitorLogFilter = buildVisitorLogFilter(visitorLogQuery);
   const onlineCount = await readOnlineCount(db);
+  const totalRow = await db.prepare(`
+    SELECT COUNT(*) AS total_count
+    FROM visitor_logs
+    LEFT JOIN owner_ip_marks ON owner_ip_marks.ip_address = visitor_logs.ip_address
+    ${visitorLogFilter.whereSql}
+  `).bind(...visitorLogFilter.values).first();
+  const total = Number(totalRow?.total_count || 0);
+  const totalPages = Math.max(1, Math.ceil(total / visitorLogQuery.pageSize));
+  const page = Math.min(visitorLogQuery.page, totalPages);
+  const offset = (page - 1) * visitorLogQuery.pageSize;
   const result = await db.prepare(`
     SELECT
       visitor_logs.id,
@@ -349,13 +512,21 @@ async function handleAdminData(request, env) {
       owner_ip_marks.ip_address IS NOT NULL AS is_owner_visitor
     FROM visitor_logs
     LEFT JOIN owner_ip_marks ON owner_ip_marks.ip_address = visitor_logs.ip_address
+    ${visitorLogFilter.whereSql}
     ORDER BY visitor_logs.visited_at DESC, visitor_logs.id DESC
-    LIMIT 50
-  `).all();
+    LIMIT ?${visitorLogFilter.values.length + 1}
+    OFFSET ?${visitorLogFilter.values.length + 2}
+  `).bind(...visitorLogFilter.values, visitorLogQuery.pageSize, offset).all();
 
   return json({
     onlineCount,
-    visitorLogs: (result.results || []).map(privateVisitorLog)
+    visitorLogs: (result.results || []).map(privateVisitorLog),
+    visitorLogsPagination: {
+      page,
+      pageSize: visitorLogQuery.pageSize,
+      total,
+      totalPages
+    }
   });
 }
 
@@ -411,8 +582,20 @@ async function handleClearVisitorLogs(request, env) {
 }
 
 function publicComment(row) {
+  if (row.deleted_at) {
+    return {
+      id: Number(row.id),
+      parentId: row.parent_comment_id ? Number(row.parent_comment_id) : null,
+      name: '评论已删除',
+      body: '评论已删除',
+      createdAt: row.created_at,
+      isDeleted: true
+    };
+  }
+
   return {
     id: Number(row.id),
+    parentId: row.parent_comment_id ? Number(row.parent_comment_id) : null,
     name: row.comment_name,
     body: row.comment_body,
     createdAt: row.created_at
@@ -423,6 +606,7 @@ function privateComment(row) {
   return {
     id: Number(row.id),
     articlePath: row.article_path,
+    parentId: row.parent_comment_id ? Number(row.parent_comment_id) : null,
     name: row.comment_name,
     email: row.comment_email,
     body: row.comment_body,
@@ -445,7 +629,7 @@ async function handleListComments(request, env) {
 
   const placeholders = articlePaths.map((_, index) => `?${index + 1}`).join(',');
   const result = await db.prepare(`
-    SELECT id, comment_name, comment_body, created_at
+    SELECT id, parent_comment_id, comment_name, comment_body, deleted_at, created_at
     FROM article_comments
     WHERE article_path IN (${placeholders})
     ORDER BY created_at ASC, id ASC
@@ -464,7 +648,13 @@ async function handleCreateComment(request, env) {
   const commentName = cleanText(body.name, MAX_COMMENT_NAME_LENGTH);
   const commentEmail = cleanText(body.email, MAX_COMMENT_EMAIL_LENGTH) || null;
   const commentBody = cleanText(body.body, MAX_COMMENT_BODY_LENGTH);
+  const requestedParentId = readCommentId(body.parentId);
   const createdAt = new Date().toISOString();
+  const deleteToken = createDeleteToken();
+  const deleteTokenHash = await sha256Hex(deleteToken);
+  const canDeleteUntil = new Date(
+    new Date(createdAt).getTime() + COMMENT_DELETION_WINDOW_MINUTES * 60 * 1000
+  ).toISOString();
 
   if (!articlePath) {
     return json({ error: 'Article path is required' }, { status: 400 });
@@ -478,46 +668,152 @@ async function handleCreateComment(request, env) {
     return json({ error: 'Comment body is required' }, { status: 400 });
   }
 
+  let parentCommentId = null;
+  if (requestedParentId) {
+    const parentComment = await db.prepare(`
+      SELECT id, parent_comment_id
+      FROM article_comments
+      WHERE id = ?1
+    `).bind(requestedParentId).first();
+
+    if (!parentComment) {
+      return json({ error: 'Parent comment not found' }, { status: 400 });
+    }
+
+    parentCommentId = Number(parentComment.parent_comment_id || parentComment.id);
+  }
+
   const result = await db.prepare(`
     INSERT INTO article_comments (
       article_path,
       comment_name,
       comment_email,
       comment_body,
-      created_at
+      created_at,
+      parent_comment_id,
+      delete_token_hash
     )
-    VALUES (?1, ?2, ?3, ?4, ?5)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
   `).bind(
     articlePath,
     commentName,
     commentEmail,
     commentBody,
-    createdAt
+    createdAt,
+    parentCommentId,
+    deleteTokenHash
   ).run();
 
   return json({
     comment: {
       id: Number(result.meta?.last_row_id || 0),
+      parentId: parentCommentId,
       name: commentName,
       body: commentBody,
-      createdAt
+      createdAt,
+      deleteToken,
+      canDeleteUntil
     }
   }, { status: 201 });
+}
+
+async function deleteOrMarkComment(db, commentId, deletedAt = new Date().toISOString()) {
+  const replyCountRow = await db.prepare(`
+    SELECT COUNT(*) AS reply_count
+    FROM article_comments
+    WHERE parent_comment_id = ?1
+  `).bind(commentId).first();
+
+  if (Number(replyCountRow?.reply_count || 0) > 0) {
+    await db.prepare(`
+      UPDATE article_comments
+      SET
+        comment_name = '评论已删除',
+        comment_email = NULL,
+        comment_body = '评论已删除',
+        deleted_at = ?2
+      WHERE id = ?1
+    `).bind(commentId, deletedAt).run();
+    return;
+  }
+
+  await db.prepare(`
+    DELETE FROM article_comments
+    WHERE id = ?1
+  `).bind(commentId).run();
+}
+
+async function handleDeleteComment(request, env, id) {
+  const commentId = Number(id);
+  if (!Number.isInteger(commentId) || commentId <= 0) {
+    return json({ error: 'Invalid comment id' }, { status: 400 });
+  }
+
+  const body = await readJson(request);
+  const deleteToken = cleanText(body.deleteToken, 256);
+  if (!deleteToken) {
+    return json({ error: 'Delete token is required' }, { status: 403 });
+  }
+
+  const db = requireVisitorDb(env);
+  const comment = await db.prepare(`
+    SELECT id, created_at, delete_token_hash
+    FROM article_comments
+    WHERE id = ?1
+  `).bind(commentId).first();
+
+  if (!comment) {
+    return json({ error: 'Comment not found' }, { status: 404 });
+  }
+
+  if (!comment.delete_token_hash || await sha256Hex(deleteToken) !== comment.delete_token_hash) {
+    return json({ error: 'Invalid delete token' }, { status: 403 });
+  }
+
+  const createdAt = new Date(comment.created_at);
+  const expiresAt = new Date(createdAt.getTime() + COMMENT_DELETION_WINDOW_MINUTES * 60 * 1000);
+  if (Number.isNaN(createdAt.getTime()) || expiresAt <= new Date()) {
+    return json({ error: 'Comment deletion window has expired' }, { status: 410 });
+  }
+
+  await deleteOrMarkComment(db, commentId);
+
+  return new Response(null, { status: 204 });
 }
 
 async function handleAdminListComments(request, env) {
   if (!isAuthorizedAdmin(request, env)) return unauthorized();
 
   const db = requireVisitorDb(env);
-  const result = await db.prepare(`
-    SELECT id, article_path, comment_name, comment_email, comment_body, created_at
+  const url = new URL(request.url);
+  const commentQuery = readCommentQuery(url);
+  const commentFilter = buildCommentFilter(commentQuery);
+  const totalRow = await db.prepare(`
+    SELECT COUNT(*) AS total_count
     FROM article_comments
+    ${commentFilter.whereSql}
+  `).bind(...commentFilter.values).first();
+  const total = Number(totalRow?.total_count || 0);
+  const totalPages = Math.max(1, Math.ceil(total / commentQuery.pageSize));
+  const page = Math.min(commentQuery.page, totalPages);
+  const offset = (page - 1) * commentQuery.pageSize;
+  const result = await db.prepare(`
+    SELECT id, article_path, parent_comment_id, comment_name, comment_email, comment_body, created_at
+    FROM article_comments
+    ${commentFilter.whereSql}
     ORDER BY created_at DESC, id DESC
-    LIMIT 100
-  `).all();
+    LIMIT ?${commentFilter.values.length + 1}
+    OFFSET ?${commentFilter.values.length + 2}
+  `).bind(...commentFilter.values, commentQuery.pageSize, offset).all();
 
   return json({
-    comments: (result.results || []).map(privateComment)
+    comments: (result.results || []).map(privateComment),
+    commentsPagination: {
+      page,
+      pageSize: commentQuery.pageSize,
+      total,
+      totalPages
+    }
   });
 }
 
@@ -530,10 +826,7 @@ async function handleAdminDeleteComment(request, env, id) {
   }
 
   const db = requireVisitorDb(env);
-  await db.prepare(`
-    DELETE FROM article_comments
-    WHERE id = ?1
-  `).bind(commentId).run();
+  await deleteOrMarkComment(db, commentId);
 
   return new Response(null, { status: 204 });
 }
@@ -552,7 +845,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (request.method === 'OPTIONS' && PUBLIC_CORS_PATHS.has(url.pathname)) {
+    if (request.method === 'OPTIONS' && isPublicCorsPath(url.pathname)) {
       return handlePublicCorsOptions(request);
     }
 
@@ -595,6 +888,11 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/comments') {
       return withPublicCors(await handleCreateComment(request, env), request);
+    }
+
+    const publicCommentDeleteMatch = url.pathname.match(/^\/comments\/(\d+)$/);
+    if (request.method === 'DELETE' && publicCommentDeleteMatch) {
+      return withPublicCors(await handleDeleteComment(request, env, publicCommentDeleteMatch[1]), request);
     }
 
     if (request.method === 'GET' && url.pathname === '/admin-comments') {
