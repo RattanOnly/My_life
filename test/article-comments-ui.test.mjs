@@ -22,7 +22,7 @@ test('footer loads the Article Comment Area script for direct and PJAX navigatio
   const footer = await readFile(new URL('../source/_data/footer.swig', import.meta.url), 'utf8');
 
   assert.match(footer, /\/js\/article-comments\.js/);
-  assert.match(footer, /\/js\/article-comments\.js\?v=20260703-reply-actions/);
+  assert.match(footer, /\/js\/article-comments\.js\?v=20260703-modern-actions/);
 });
 
 test('article comments script loads, submits, and renders comments safely', async () => {
@@ -40,6 +40,9 @@ test('article comments script loads, submits, and renders comments safely', asyn
   assert.match(script, /canDeleteUntil/);
   assert.match(script, /data-comment-id/);
   assert.match(script, /data-comment-reply/);
+  assert.match(script, /ui-button/);
+  assert.match(script, /ui-button-ghost/);
+  assert.match(script, /ui-button-danger/);
   assert.match(script, /article-comment-delete-button/);
   assert.match(script, /method:\s*'DELETE'/);
   assert.match(script, /取消回复/);
@@ -61,8 +64,12 @@ test('article comments styles support one-level Comment Replies', async () => {
   const styles = await readFile(new URL('../source/_data/styles.styl', import.meta.url), 'utf8');
 
   assert.match(styles, /\.article-comment-replies/);
-  assert.match(styles, /\.article-comment-reply-button/);
-  assert.match(styles, /\.article-comment-delete-button/);
+  assert.match(styles, /\.ui-button/);
+  assert.match(styles, /\.ui-button-ghost/);
+  assert.match(styles, /\.ui-button-danger/);
+  assert.match(styles, /focus-visible/);
+  assert.match(styles, /prefers-reduced-motion/);
+  assert.match(styles, /\.article-comment-action-button/);
   assert.match(styles, /\.article-comment-actions/);
   assert.match(styles, /\.article-comment-deleted/);
   assert.match(styles, /\.article-comments-replying/);

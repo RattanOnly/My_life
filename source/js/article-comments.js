@@ -46,7 +46,7 @@
     if (!comment.isDeleted) {
       const replyButton = document.createElement('button');
       replyButton.type = 'button';
-      replyButton.className = 'article-comment-reply-button';
+      replyButton.className = 'ui-button ui-button-ghost article-comment-action-button article-comment-reply-button';
       replyButton.textContent = '回复这条';
       replyButton.addEventListener('click', () => {
         actions.onReply(comment);
@@ -57,7 +57,7 @@
     if (!comment.isDeleted && actions.canDelete(comment)) {
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
-      deleteButton.className = 'article-comment-delete-button';
+      deleteButton.className = 'ui-button ui-button-danger article-comment-action-button article-comment-delete-button';
       deleteButton.textContent = '删除';
       deleteButton.addEventListener('click', () => {
         actions.onDelete(comment);

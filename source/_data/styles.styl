@@ -661,26 +661,71 @@ body.has-background-video {
 .article-comment-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.5rem;
   align-items: center;
-  margin-top: 0.45rem;
+  margin-top: 0.6rem;
 }
 
-.article-comment-reply-button,
-.article-comment-delete-button {
-  min-height: 32px;
-  padding: 0.2rem 0.65rem;
-  border: 1px solid var(--color-border, #ddd);
-  border-radius: 999px;
-  background: var(--content-bg-color, #fff);
-  color: var(--link-color, #555);
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(34, 34, 34, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  color: var(--text-color, #333);
   cursor: pointer;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
-.article-comment-delete-button {
+.ui-button:hover {
+  border-color: rgba(34, 34, 34, 0.24);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.ui-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid rgba(34, 34, 34, 0.26);
+  outline-offset: 2px;
+}
+
+.ui-button-ghost {
+  color: var(--link-color, #555);
+}
+
+.ui-button-danger {
+  border-color: rgba(163, 51, 51, 0.22);
   color: #a33;
+}
+
+.ui-button-danger:hover {
+  border-color: rgba(163, 51, 51, 0.34);
+  background: rgba(255, 245, 245, 0.9);
+  color: #8f2424;
+}
+
+.article-comment-action-button {
+  flex: 0 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-button {
+    transition: none;
+  }
 }
 
 .article-comment-deleted {
