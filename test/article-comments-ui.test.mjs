@@ -22,6 +22,7 @@ test('footer loads the Article Comment Area script for direct and PJAX navigatio
   const footer = await readFile(new URL('../source/_data/footer.swig', import.meta.url), 'utf8');
 
   assert.match(footer, /\/js\/article-comments\.js/);
+  assert.match(footer, /\/js\/article-comments\.js\?v=20260703-reply-actions/);
 });
 
 test('article comments script loads, submits, and renders comments safely', async () => {
@@ -42,7 +43,7 @@ test('article comments script loads, submits, and renders comments safely', asyn
   assert.match(script, /article-comment-delete-button/);
   assert.match(script, /method:\s*'DELETE'/);
   assert.match(script, /取消回复/);
-  assert.match(script, /回复/);
+  assert.match(script, /回复这条/);
   assert.match(script, /评论已删除/);
   assert.match(script, /article-comment-replies/);
   assert.doesNotMatch(script, /formData\.get\('email'\)/);

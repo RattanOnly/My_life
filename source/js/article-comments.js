@@ -47,7 +47,7 @@
       const replyButton = document.createElement('button');
       replyButton.type = 'button';
       replyButton.className = 'article-comment-reply-button';
-      replyButton.textContent = '回复';
+      replyButton.textContent = '回复这条';
       replyButton.addEventListener('click', () => {
         actions.onReply(comment);
       });
