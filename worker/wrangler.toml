@@ -20,7 +20,7 @@ pattern = "lovezvv.com/visits"
 zone_name = "lovezvv.com"
 
 [[routes]]
-pattern = "lovezvv.com/admin-data"
+pattern = "lovezvv.com/admin-data*"
 zone_name = "lovezvv.com"
 
 [[routes]]
@@ -52,7 +52,7 @@ pattern = "www.lovezvv.com/visits"
 zone_name = "lovezvv.com"
 
 [[routes]]
-pattern = "www.lovezvv.com/admin-data"
+pattern = "www.lovezvv.com/admin-data*"
 zone_name = "lovezvv.com"
 
 [[routes]]

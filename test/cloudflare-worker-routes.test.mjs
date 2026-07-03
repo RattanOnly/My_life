@@ -7,7 +7,7 @@ const routePatterns = [
   'lovezvv.com/presence',
   'lovezvv.com/online-count',
   'lovezvv.com/visits',
-  'lovezvv.com/admin-data',
+  'lovezvv.com/admin-data*',
   'lovezvv.com/admin-comments*',
   'lovezvv.com/admin-owner-ip-marks*',
   'lovezvv.com/admin-visits',
@@ -15,7 +15,7 @@ const routePatterns = [
   'www.lovezvv.com/presence',
   'www.lovezvv.com/online-count',
   'www.lovezvv.com/visits',
-  'www.lovezvv.com/admin-data',
+  'www.lovezvv.com/admin-data*',
   'www.lovezvv.com/admin-comments*',
   'www.lovezvv.com/admin-owner-ip-marks*',
   'www.lovezvv.com/admin-visits'
