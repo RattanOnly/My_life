@@ -10,18 +10,29 @@ id="echo-page"
 class="echo-page"
 data-echo-chat-endpoint="/echo-chat"
 data-echo-status-endpoint="/echo-status"
-data-echo-stage="idle_sit"
+data-echo-stage="idle"
 >
-<div class="echo-scene" aria-hidden="true">
-<div class="echo-boy" data-echo-boy>
-<div class="echo-boy-head"></div>
-<div class="echo-boy-pack"></div>
-<div class="echo-boy-body"></div>
-<div class="echo-boy-leg echo-boy-leg-left"></div>
-<div class="echo-boy-leg echo-boy-leg-right"></div>
-<div class="echo-boy-shadow"></div>
-</div>
-<div class="echo-thought">...</div>
+<div
+class="echo-character"
+data-echo-character
+data-echo-rive-src="/echo/assets/echo-boy.riv"
+aria-hidden="true"
+>
+<canvas
+class="echo-character-canvas"
+data-echo-rive-canvas
+width="320"
+height="240"
+></canvas>
+<img
+class="echo-character-fallback"
+data-echo-character-fallback
+src="/echo/assets/echo-boy-fallback.svg"
+alt=""
+loading="eager"
+decoding="async"
+>
+<div class="echo-thought" data-echo-thought>...</div>
 </div>
 
 <div class="echo-chat-panel">
@@ -39,4 +50,5 @@ data-echo-stage="idle_sit"
 </div>
 </section>
 
+<script src="/js/echo-character.js"></script>
 <script src="/js/echo-chat.js"></script>

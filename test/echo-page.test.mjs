@@ -136,13 +136,20 @@ test('Echo page renders a standalone AI conversation shell', async () => {
   assert.match(page, /id="echo-page"/);
   assert.match(page, /data-echo-chat-endpoint="\/echo-chat"/);
   assert.match(page, /data-echo-status-endpoint="\/echo-status"/);
-  assert.match(page, /data-echo-stage="idle_sit"/);
+  assert.match(page, /data-echo-stage="idle"/);
   assert.match(page, /这里不是他本人，只是一些从他的文字里长出来的回声。你的对话不会被保存。/);
+  assert.match(page, /data-echo-character/);
+  assert.match(page, /data-echo-rive-canvas/);
+  assert.match(page, /data-echo-character-fallback/);
+  assert.match(page, /src="\/echo\/assets\/echo-boy-fallback\.svg"/);
+  assert.match(page, /data-echo-rive-src="\/echo\/assets\/echo-boy\.riv"/);
   assert.match(page, /data-echo-messages/);
   assert.match(page, /data-echo-form/);
   assert.match(page, /name="message"/);
   assert.match(page, /aria-live="polite"/);
+  assert.match(page, /\/js\/echo-character\.js/);
   assert.match(page, /\/js\/echo-chat\.js/);
+  assert.doesNotMatch(page, /class="echo-boy"/);
 });
 
 test('Echo is available from the main navigation', async () => {
