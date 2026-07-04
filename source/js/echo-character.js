@@ -83,7 +83,11 @@
         fail(new Error('Rive runtime requires a document target'));
         return;
       }
-      target.appendChild(script);
+      try {
+        target.appendChild(script);
+      } catch (error) {
+        fail(error);
+      }
     });
 
     scriptLoadPromise = failedBeforeCache ? null : pendingLoad;
@@ -160,11 +164,18 @@
       }
 
       function cleanupRive() {
-        if (riveInstance && typeof riveInstance.cleanup === 'function') {
-          riveInstance.cleanup();
+        try {
+          if (riveInstance && typeof riveInstance.cleanup === 'function') {
+            riveInstance.cleanup();
+          }
+        } catch (error) {
+          if (global.console && typeof global.console.warn === 'function') {
+            global.console.warn('Echo character Rive cleanup failed:', error);
+          }
+        } finally {
+          riveInstance = null;
+          inputs = {};
         }
-        riveInstance = null;
-        inputs = {};
       }
 
       function applyState(state) {

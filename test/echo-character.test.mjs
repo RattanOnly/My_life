@@ -233,6 +233,48 @@ test('falls back and cleans up when Rive onLoad setup throws', async () => {
   assert.equal(cleanupCalls, 1);
 });
 
+test('falls back when onLoad setup and cleanup both throw', async () => {
+  let riveOptions = null;
+  let cleanupCalls = 0;
+  class FakeRive {
+    constructor(options) {
+      riveOptions = options;
+    }
+
+    stateMachineInputs() {
+      throw new Error('state machine unavailable');
+    }
+
+    cleanup() {
+      cleanupCalls += 1;
+      throw new Error('cleanup unavailable');
+    }
+  }
+
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: async () => ({
+      Rive: FakeRive,
+      RuntimeLoader: { setWasmUrl() {}, setWasmFallbackUrl() {} }
+    })
+  }).create(root);
+
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(riveOptions);
+
+  assert.doesNotThrow(() => riveOptions.onLoad());
+  const ready = await Promise.race([
+    adapter.ready,
+    new Promise((resolve, reject) => {
+      setTimeout(() => reject(new Error('adapter.ready did not settle')), 50);
+    })
+  ]);
+  assert.equal(ready, false);
+  assert.equal(shell.dataset.echoCharacterReady, 'fallback');
+  assert.equal(cleanupCalls, 1);
+});
+
 test('does not bind unnamed or wrong-name Rive inputs by position', async () => {
   const wrongValueInput = { name: 'status', value: 'unchanged' };
   const wrongEnter = { name: 'start', fired: 0, fire() { this.fired += 1; } };
@@ -424,6 +466,48 @@ test('default script loader retries after a script load failure', async () => {
 
   const rive = { Rive: class {}, RuntimeLoader: {}, Layout: class {}, Fit: {}, Alignment: {} };
   const secondLoad = loader.loadRive();
+  assert.equal(scripts.length, 2);
+  window.rive = rive;
+  scripts[1].onload();
+
+  assert.equal(await secondLoad, rive);
+});
+
+test('default script loader retries after appendChild throws synchronously', async () => {
+  const scripts = [];
+  const head = new FakeElement('head');
+  const document = {
+    head,
+    createElement(tagName) {
+      const element = new FakeElement(tagName);
+      element.tagName = tagName;
+      element.remove = function remove() {
+        this.removed = true;
+      };
+      scripts.push(element);
+      return element;
+    }
+  };
+  let appendAttempts = 0;
+  head.appendChild = child => {
+    appendAttempts += 1;
+    child.parentElement = head;
+    if (appendAttempts === 1) {
+      throw new Error('append failed');
+    }
+    return child;
+  };
+  const window = { document };
+  const EchoCharacter = await loadCharacterApi({ window, document });
+  const loader = EchoCharacter.createWithDeps();
+
+  await assert.rejects(loader.loadRive(), /append failed/);
+  assert.equal(scripts.length, 1);
+  assert.equal(scripts[0].removed, true);
+
+  const rive = { Rive: class {}, RuntimeLoader: {}, Layout: class {}, Fit: {}, Alignment: {} };
+  const secondLoad = loader.loadRive();
+  assert.equal(appendAttempts, 2);
   assert.equal(scripts.length, 2);
   window.rive = rive;
   scripts[1].onload();
