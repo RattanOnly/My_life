@@ -111,3 +111,87 @@ _Avoid_: Required email, login email
 **Article Comment Area**:
 The comment area shown at the bottom of each blog article.
 _Avoid_: Homepage comments, global guestbook
+
+**Echo Page**:
+The standalone public section reached from the main site navigation where Visitors enter the AI Visitor Conversation Assistant.
+_Avoid_: Article widget, floating chat button, customer service page
+
+**Echo Identity Notice**:
+The Visitor-facing explanation that the AI Visitor Conversation Assistant is a response shaped by the blog's writing, not the blog owner speaking in person.
+_Avoid_: Owner impersonation, AI客服, digital clone claim
+
+**AI Visitor Conversation Assistant**:
+An AI-facing Visitor experience that offers warm, reflective conversation based on the blog owner's public writing and stories, while making clear it is not the blog owner themselves.
+_Avoid_: Digital person, AI owner, chatbot clone
+
+**Warm Reflective Conversation**:
+A conversational style that first acknowledges a Visitor's feeling, then gently relates it to the blog owner's public writing without sounding clinical, promotional, or instructional.
+_Avoid_: Customer support answer, AI explanation, motivational speech
+
+**Echo Reply Rhythm**:
+The AI Visitor Conversation Assistant's short conversational response shape, usually acknowledging the Visitor first, reflecting through the blog's writing, and leaving one gentle opening to continue.
+_Avoid_: Long essay, analysis report, lecture, rapid-fire advice
+
+**Writing-Grounded Guidance**:
+Supportive conversation that is primarily grounded in the blog owner's public writing, with limited general warmth allowed when a Visitor expresses confusion or emotional difficulty.
+_Avoid_: Professional counseling, personal advice from the owner, invented life story
+
+**Public Writing Source**:
+The allowed source material for the AI Visitor Conversation Assistant, limited to all published blog articles and an owner-approved personal tone summary.
+_Avoid_: Comments, Visitor Logs, drafts, private files, invented memories
+
+**Owner-Approved Tone Summary**:
+A concise owner-confirmed summary of the blog owner's public writing themes, temperament, and recurring concerns used by the AI Visitor Conversation Assistant.
+_Avoid_: Auto-published profile, private biography, personality diagnosis
+
+**Echo Article Reference**:
+A selective Visitor-facing mention or link to a published blog article when it helps ground the AI Visitor Conversation Assistant's response in the Public Writing Source.
+_Avoid_: Mandatory citation, search result list, footnote trail
+
+**Echo Embedding Model**:
+The embedding model used to turn Public Writing Source fragments and Visitor questions into vectors for Echo retrieval. The first implementation should try `text-embedding-3-large` for retrieval quality, accepting the larger Vectorize dimension and higher cost while traffic is low.
+_Avoid_: Chat model, reply model, permanent model choice
+
+**Echo Session Memory**:
+The short-lived conversation context the AI Visitor Conversation Assistant may use while a Visitor is actively using the Echo Page.
+_Avoid_: Long-term visitor memory, returning-visitor profile, relationship memory
+
+**Unshared Memory Boundary**:
+The AI Visitor Conversation Assistant's response boundary for topics absent from the Public Writing Source, expressed warmly as something the owner has not shared with the assistant.
+_Avoid_: Hallucinated answer, cold refusal, owner impersonation
+
+**Contact Prompt Boundary**:
+The AI Visitor Conversation Assistant's limit for gently suggesting that a Visitor may speak with the owner directly, only when the Visitor is clearly asking for the owner's personal view or direct contact.
+_Avoid_: Contact funnel, repeated owner referral, social CTA
+
+**Soft Safety Boundary**:
+The AI Visitor Conversation Assistant's warm refusal-and-redirection boundary for unsafe or overreaching topics such as therapy, diagnosis, crisis handling, legal, medical, financial, or private-person judgments.
+_Avoid_: Expert advice, hard rejection, risky reassurance, owner commitment
+
+**AI Assistant Control**:
+An owner-facing control that can pause or resume the AI Visitor Conversation Assistant without removing the Echo Page.
+_Avoid_: Visitor preference, permanent removal, deployment rollback
+
+**Echo Disabled State**:
+The Visitor-facing paused state shown on the Echo Page when the AI Visitor Conversation Assistant is temporarily unavailable.
+_Avoid_: 404 page, broken chat, removed feature, deployment rollback
+
+**AI Usage Monitoring**:
+An owner-facing view of AI Visitor Conversation Assistant activity, focused on call volume, recent use, operational status, token use, and failure visibility without conversation content.
+_Avoid_: Visitor profiling, public analytics, exact billing ledger
+
+**No-Content AI Monitoring**:
+Operational monitoring for the AI Visitor Conversation Assistant that records call status and abuse signals without storing Visitor prompts, AI replies, or conversation summaries.
+_Avoid_: Conversation archive, hidden transcript, content review queue
+
+**Echo Privacy Notice**:
+The Visitor-facing explanation that Echo Page conversations are not saved, while minimal operational status may be recorded to prevent abuse.
+_Avoid_: Hidden logging, legalistic privacy wall, vague tracking notice
+
+**AI Conversation Record**:
+A private owner-facing record of AI conversation metadata only, kept only long enough to monitor operation and prevent abuse.
+_Avoid_: Visitor prompt, AI reply, conversation summary, full chat transcript, visitor profile
+
+**AI Conversation Retention**:
+The short period AI Conversation Records are kept before they are no longer needed for owner review.
+_Avoid_: Permanent memory, model training history

@@ -6,6 +6,7 @@ node_modules/
 public/
 .deploy*/
 .worktrees/
+.superpowers/
 .wrangler/
 .dev.vars
 _multiconfig.yml
