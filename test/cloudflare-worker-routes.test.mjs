@@ -11,6 +11,10 @@ const routePatterns = [
   'lovezvv.com/admin-comments*',
   'lovezvv.com/admin-owner-ip-marks*',
   'lovezvv.com/admin-visits',
+  'lovezvv.com/echo-chat',
+  'lovezvv.com/echo-status',
+  'lovezvv.com/admin-echo',
+  'lovezvv.com/admin-echo-usage',
   'www.lovezvv.com/comments*',
   'www.lovezvv.com/presence',
   'www.lovezvv.com/online-count',
@@ -18,7 +22,11 @@ const routePatterns = [
   'www.lovezvv.com/admin-data*',
   'www.lovezvv.com/admin-comments*',
   'www.lovezvv.com/admin-owner-ip-marks*',
-  'www.lovezvv.com/admin-visits'
+  'www.lovezvv.com/admin-visits',
+  'www.lovezvv.com/echo-chat',
+  'www.lovezvv.com/echo-status',
+  'www.lovezvv.com/admin-echo',
+  'www.lovezvv.com/admin-echo-usage'
 ];
 
 test('Cloudflare Worker Routes own Visitor state API paths on production domains', async () => {
@@ -30,6 +38,8 @@ test('Cloudflare Worker Routes own Visitor state API paths on production domains
 
   const zoneNameCount = (config.match(/zone_name\s*=\s*"lovezvv\.com"/g) || []).length;
   assert.equal(zoneNameCount, routePatterns.length);
+  assert.match(config, /binding\s*=\s*"ECHO_VECTORIZE"/);
+  assert.match(config, /index_name\s*=\s*"my-life-echo-large"/);
   assert.doesNotMatch(config, /netlify/i);
 });
 

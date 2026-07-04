@@ -36,6 +36,22 @@ pattern = "lovezvv.com/admin-visits"
 zone_name = "lovezvv.com"
 
 [[routes]]
+pattern = "lovezvv.com/echo-chat"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/echo-status"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/admin-echo"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "lovezvv.com/admin-echo-usage"
+zone_name = "lovezvv.com"
+
+[[routes]]
 pattern = "www.lovezvv.com/comments*"
 zone_name = "lovezvv.com"
 
@@ -67,6 +83,22 @@ zone_name = "lovezvv.com"
 pattern = "www.lovezvv.com/admin-visits"
 zone_name = "lovezvv.com"
 
+[[routes]]
+pattern = "www.lovezvv.com/echo-chat"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/echo-status"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/admin-echo"
+zone_name = "lovezvv.com"
+
+[[routes]]
+pattern = "www.lovezvv.com/admin-echo-usage"
+zone_name = "lovezvv.com"
+
 [triggers]
 crons = ["17 3 * * *"]
 
@@ -75,3 +107,7 @@ binding = "VISITOR_DB"
 database_name = "my-life-visitor-state"
 database_id = "8db207b2-f73b-46f3-bab6-f2acade0f434"
 migrations_dir = "migrations"
+
+[[vectorize]]
+binding = "ECHO_VECTORIZE"
+index_name = "my-life-echo-large"
