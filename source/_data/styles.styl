@@ -514,3 +514,251 @@ body.has-background-video {
     width: 100%;
   }
 }
+
+.echo-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 36px 18px 56px;
+}
+
+.echo-scene {
+  position: relative;
+  min-height: 138px;
+}
+
+.echo-boy {
+  position: absolute;
+  left: 42px;
+  bottom: 8px;
+  width: 76px;
+  height: 112px;
+  transform-origin: 50% 100%;
+  transition: transform .28s ease;
+}
+
+.echo-boy-head,
+.echo-boy-body,
+.echo-boy-pack,
+.echo-boy-leg,
+.echo-boy-shadow {
+  position: absolute;
+}
+
+.echo-boy-head {
+  top: 4px;
+  left: 23px;
+  width: 32px;
+  height: 30px;
+  border: 2px solid rgba(48, 40, 32, .86);
+  border-radius: 50%;
+  background: #f0cda8;
+}
+
+.echo-boy-head::before,
+.echo-boy-head::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #302820;
+}
+
+.echo-boy-head::before {
+  left: 9px;
+}
+
+.echo-boy-head::after {
+  right: 9px;
+}
+
+.echo-boy-body {
+  top: 38px;
+  left: 22px;
+  width: 34px;
+  height: 42px;
+  border: 2px solid rgba(48, 40, 32, .86);
+  border-radius: 12px 12px 8px 8px;
+  background: #d7dfc8;
+}
+
+.echo-boy-pack {
+  top: 43px;
+  left: 10px;
+  width: 18px;
+  height: 34px;
+  border-radius: 12px;
+  background: #7a644f;
+}
+
+.echo-boy-leg {
+  top: 77px;
+  width: 7px;
+  height: 28px;
+  border-radius: 999px;
+  background: #514238;
+}
+
+.echo-boy-leg-left {
+  left: 28px;
+}
+
+.echo-boy-leg-right {
+  left: 45px;
+}
+
+.echo-boy-shadow {
+  left: 16px;
+  right: 14px;
+  bottom: 0;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(62, 49, 37, .14);
+  filter: blur(2px);
+}
+
+.echo-thought {
+  position: absolute;
+  left: 128px;
+  bottom: 74px;
+  color: rgba(68, 56, 44, .38);
+  font-family: Georgia, serif;
+  letter-spacing: .28em;
+}
+
+.echo-chat-panel {
+  position: relative;
+  border: 1px solid rgba(55, 45, 35, .16);
+  border-radius: 18px;
+  background: rgba(255, 252, 246, .92);
+  box-shadow: 0 22px 56px rgba(45, 36, 28, .10);
+  overflow: hidden;
+}
+
+.echo-belt {
+  height: 28px;
+  background:
+    repeating-linear-gradient(90deg, rgba(91, 73, 55, .12) 0 18px, rgba(255, 255, 255, .36) 18px 32px),
+    #f4eadc;
+  animation: echo-belt-drift 18s linear infinite;
+}
+
+@keyframes echo-belt-drift {
+  from { background-position: 0 0; }
+  to { background-position: 320px 0; }
+}
+
+.echo-identity,
+.echo-status {
+  color: #6b6058;
+  font-size: .95em;
+}
+
+.echo-identity {
+  margin: 18px 22px 0;
+}
+
+.echo-messages {
+  display: grid;
+  gap: 12px;
+  padding: 18px 22px 8px;
+}
+
+.echo-message {
+  max-width: 78%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  line-height: 1.75;
+}
+
+.echo-message-user {
+  justify-self: end;
+  background: #efe3d2;
+}
+
+.echo-message-assistant {
+  justify-self: start;
+  background: #f8f3ea;
+  border: 1px solid rgba(55, 45, 35, .12);
+}
+
+.echo-form {
+  display: grid;
+  gap: 10px;
+  padding: 16px 22px 22px;
+}
+
+.echo-form label {
+  font-weight: 600;
+}
+
+.echo-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 116px;
+  border: 1px solid rgba(55, 45, 35, .22);
+  border-radius: 12px;
+  padding: 12px;
+  resize: vertical;
+  background: #fffefa;
+}
+
+.echo-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.echo-page[data-echo-stage='walk'] .echo-boy,
+.echo-page[data-echo-stage='thinking'] .echo-boy {
+  animation: echo-boy-walk 1.35s ease-in-out infinite;
+}
+
+.echo-page[data-echo-stage='thinking'] .echo-thought {
+  animation: echo-thought-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes echo-boy-walk {
+  0%, 100% { transform: translateX(0) rotate(-1deg); }
+  50% { transform: translateX(10px) rotate(1deg); }
+}
+
+@keyframes echo-thought-pulse {
+  0%, 100% { opacity: .32; }
+  50% { opacity: .78; }
+}
+
+@media (max-width: 700px) {
+  .echo-page {
+    padding: 22px 12px 44px;
+  }
+
+  .echo-scene {
+    min-height: 112px;
+  }
+
+  .echo-boy {
+    transform: scale(.82);
+    left: 18px;
+  }
+
+  .echo-message {
+    max-width: 92%;
+  }
+
+  .echo-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .echo-belt,
+  .echo-page[data-echo-stage='walk'] .echo-boy,
+  .echo-page[data-echo-stage='thinking'] .echo-boy,
+  .echo-page[data-echo-stage='thinking'] .echo-thought {
+    animation: none;
+  }
+}
