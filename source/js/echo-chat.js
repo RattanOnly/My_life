@@ -10,6 +10,7 @@
   const submitButton = form ? form.querySelector('button[type="submit"]') : null;
   const chatEndpoint = root.dataset.echoChatEndpoint || '/echo-chat';
   const statusEndpoint = root.dataset.echoStatusEndpoint || '/echo-status';
+  const disabledMessage = '这阵回声暂时坐下来休息了。晚一点再来找他吧。';
   const history = [];
 
   const setStage = stage => {
@@ -49,7 +50,7 @@
     if (body.enabled === false) {
       setDisabled(true);
       setStage('disabled');
-      setStatus('这阵回声暂时坐下来休息了。晚一点再来找他吧。');
+      setStatus(disabledMessage);
     }
   };
 
@@ -80,9 +81,10 @@
 
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setStage(response.status === 503 ? 'disabled' : 'idle_sit');
-      setStatus(body.message || '这阵回声刚刚有点走神。可以再试一次。');
-      setDisabled(response.status === 503);
+      const isDisabled = response.status === 503;
+      setStage(isDisabled ? 'disabled' : 'idle_sit');
+      setStatus(body.message || (isDisabled ? disabledMessage : '这阵回声刚刚有点走神。可以再试一次。'));
+      setDisabled(isDisabled);
       return;
     }
 
