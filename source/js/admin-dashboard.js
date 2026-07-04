@@ -35,6 +35,7 @@
 
   let adminPassword = '';
   let echoIsEnabled = true;
+  let echoToggleInFlight = false;
   const visitorFilterState = {
     visitorPage: 1,
     visitorPageSize: 20,
@@ -336,6 +337,29 @@
     });
   };
 
+  const formatEchoEventTime = value => {
+    if (!value) return '未知时间';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '未知时间';
+
+    return date.toLocaleString();
+  };
+
+  const updateEchoEnabledState = (enabled, { disabled = false } = {}) => {
+    echoIsEnabled = enabled;
+    if (echoEnabled) echoEnabled.textContent = echoIsEnabled ? '开启' : '暂停';
+    if (echoToggleButton) {
+      echoToggleButton.textContent = echoIsEnabled ? '暂停 Echo' : '开启 Echo';
+      echoToggleButton.disabled = disabled;
+    }
+  };
+
+  const setEchoStatusUnavailable = () => {
+    if (echoEnabled) echoEnabled.textContent = '无法加载';
+    if (echoToggleButton) echoToggleButton.disabled = true;
+  };
+
   const renderEchoUsage = usage => {
     clearNode(echoUsage);
     if (!echoUsage) return;
@@ -347,11 +371,18 @@
     const tokens = document.createElement('p');
     tokens.textContent = `Token 估算：输入 ${summary.promptTokens || 0}，输出 ${summary.completionTokens || 0}。`;
 
-    const list = document.createElement('ul');
     const recentEvents = Array.isArray(usage?.recentEvents) ? usage.recentEvents : [];
+    if (!recentEvents.length) {
+      const empty = document.createElement('p');
+      empty.textContent = '暂无最近调用。';
+      echoUsage.append(total, tokens, empty);
+      return;
+    }
+
+    const list = document.createElement('ul');
     recentEvents.slice(0, 5).forEach(event => {
       const item = document.createElement('li');
-      const time = event.createdAt ? new Date(event.createdAt).toLocaleString() : '未知时间';
+      const time = formatEchoEventTime(event.createdAt);
       item.textContent = `${time} · ${event.status || 'unknown'} · 输入 ${event.promptTokens || 0} · 输出 ${event.completionTokens || 0}`;
       list.append(item);
     });
@@ -359,36 +390,69 @@
     echoUsage.append(total, tokens, list);
   };
 
-  const loadEchoAdmin = async () => {
-    const [statusResponse, usageResponse] = await Promise.all([
-      adminFetch(adminEchoStatusEndpoint, { cache: 'no-store' }),
-      adminFetch(adminEchoUsageEndpoint, { cache: 'no-store' })
-    ]);
+  const loadEchoAdmin = async ({ preserveKnownStatus = false } = {}) => {
+    if (echoUsage) echoUsage.textContent = 'Echo 状态加载中...';
 
-    if (!statusResponse.ok || !usageResponse.ok) return;
+    const statusRequest = adminFetch(adminEchoStatusEndpoint, { cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) throw new Error('Echo status failed');
 
-    const statusBody = await statusResponse.json();
-    const usageBody = await usageResponse.json();
-    echoIsEnabled = statusBody.enabled !== false;
-    if (echoEnabled) echoEnabled.textContent = echoIsEnabled ? '开启' : '暂停';
-    if (echoToggleButton) echoToggleButton.textContent = echoIsEnabled ? '暂停 Echo' : '开启 Echo';
-    renderEchoUsage(usageBody);
+        const statusBody = await response.json();
+        updateEchoEnabledState(statusBody.enabled !== false, { disabled: echoToggleInFlight });
+      })
+      .catch(() => {
+        if (!preserveKnownStatus) setEchoStatusUnavailable();
+      });
+
+    const usageRequest = adminFetch(adminEchoUsageEndpoint, { cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) throw new Error('Echo usage failed');
+
+        const usageBody = await response.json();
+        renderEchoUsage(usageBody);
+      })
+      .catch(() => {
+        if (echoUsage) echoUsage.textContent = 'Echo 状态暂时无法加载。';
+      });
+
+    await Promise.allSettled([statusRequest, usageRequest]);
   };
 
   const toggleEchoEnabled = async () => {
-    const response = await adminFetch(adminEchoStatusEndpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ enabled: !echoIsEnabled })
-    });
+    if (echoToggleInFlight) return;
 
-    if (!response.ok) {
+    const previousEnabled = echoIsEnabled;
+    const nextEnabled = !echoIsEnabled;
+    echoToggleInFlight = true;
+    if (echoToggleButton) echoToggleButton.disabled = true;
+
+    let response;
+    try {
+      response = await adminFetch(adminEchoStatusEndpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: nextEnabled })
+      });
+    } catch {
+      updateEchoEnabledState(previousEnabled);
+      echoToggleInFlight = false;
       setStatus('Echo 状态更新失败。');
       return;
     }
 
-    await loadEchoAdmin();
-    setStatus(echoIsEnabled ? 'Echo 已开启。' : 'Echo 已暂停。');
+    if (!response.ok) {
+      updateEchoEnabledState(previousEnabled);
+      echoToggleInFlight = false;
+      setStatus('Echo 状态更新失败。');
+      return;
+    }
+
+    updateEchoEnabledState(nextEnabled);
+    echoToggleInFlight = false;
+    setStatus(nextEnabled ? 'Echo 已开启。' : 'Echo 已暂停。');
+    loadEchoAdmin({ preserveKnownStatus: true }).catch(() => {
+      if (echoUsage) echoUsage.textContent = 'Echo 状态暂时无法加载。';
+    });
   };
 
   async function loadDashboard() {
@@ -413,13 +477,13 @@
     renderVisitorPagination(adminData.visitorLogsPagination);
     renderComments(Array.isArray(commentsData.comments) ? commentsData.comments : []);
     renderCommentPagination(commentsData.commentsPagination);
-    await loadEchoAdmin().catch(() => {
-      if (echoUsage) echoUsage.textContent = 'Echo 状态暂时无法加载。';
-    });
     content.hidden = false;
     loginForm.hidden = true;
     localStorage.setItem(PASSWORD_STORAGE_KEY, adminPassword);
     setStatus('');
+    loadEchoAdmin().catch(() => {
+      if (echoUsage) echoUsage.textContent = 'Echo 状态暂时无法加载。';
+    });
   }
 
   const logout = () => {
