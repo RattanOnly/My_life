@@ -308,6 +308,16 @@
               }
             }
 
+            function deferCompleteLoad() {
+              Promise.resolve().then(completeLoad);
+            }
+
+            function deferCompleteFallback(error) {
+              Promise.resolve().then(function completeDeferredFallback() {
+                completeFallback(error);
+              });
+            }
+
             try {
               riveInstance = new Rive({
                 src: shell.dataset.echoRiveSrc || shell.getAttribute('data-echo-rive-src') || RIVE_SRC,
@@ -315,8 +325,8 @@
                 autoplay: true,
                 stateMachines: STATE_MACHINE,
                 layout: layout,
-                onLoad: completeLoad,
-                onLoadError: completeFallback
+                onLoad: deferCompleteLoad,
+                onLoadError: deferCompleteFallback
               });
             } catch (error) {
               completeFallback(error);

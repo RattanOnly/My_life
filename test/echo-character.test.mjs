@@ -163,6 +163,75 @@ test('maps semantic states to fake Rive state machine inputs', async () => {
   assert.equal(calls.cleanup, 1);
 });
 
+test('handles synchronous Rive onLoad after constructor assignment', async () => {
+  const mode = { name: 'mode', value: -1 };
+  const calls = {
+    cleanup: 0,
+    stateMachineInputs: 0
+  };
+  class FakeRive {
+    constructor(options) {
+      options.onLoad();
+    }
+
+    stateMachineInputs(name) {
+      calls.stateMachineInputs += 1;
+      assert.equal(name, 'EchoBoyState');
+      return [mode];
+    }
+
+    resizeDrawingSurfaceToCanvas() {}
+
+    cleanup() {
+      calls.cleanup += 1;
+    }
+  }
+
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: async () => ({
+      Rive: FakeRive,
+      RuntimeLoader: { setWasmUrl() {}, setWasmFallbackUrl() {} }
+    })
+  }).create(root);
+
+  assert.equal(await adapter.ready, true);
+  assert.equal(shell.dataset.echoCharacterReady, 'rive');
+  assert.equal(calls.stateMachineInputs, 1);
+  assert.equal(mode.value, 0);
+  assert.equal(calls.cleanup, 0);
+
+  adapter.destroy();
+  assert.equal(calls.cleanup, 1);
+});
+
+test('cleans up when Rive constructor synchronously reports onLoadError', async () => {
+  let cleanupCalls = 0;
+  class FakeRive {
+    constructor(options) {
+      options.onLoadError(new Error('sync load failed'));
+    }
+
+    cleanup() {
+      cleanupCalls += 1;
+    }
+  }
+
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: async () => ({
+      Rive: FakeRive,
+      RuntimeLoader: { setWasmUrl() {}, setWasmFallbackUrl() {} }
+    })
+  }).create(root);
+
+  assert.equal(await adapter.ready, false);
+  assert.equal(shell.dataset.echoCharacterReady, 'fallback');
+  assert.equal(cleanupCalls, 1);
+});
+
 test('falls back when the Rive instance reports onLoadError', async () => {
   let riveOptions = null;
   let cleanupCalls = 0;
