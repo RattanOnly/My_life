@@ -6,9 +6,41 @@ import { test } from 'node:test';
 
 import {
   buildEchoDocuments,
+  buildEchoVectors,
   chunkEchoText,
-  parsePostFrontMatter
-} from '../scripts/build-echo-index.mjs';
+  createEmbedding,
+  parsePostFrontMatter,
+  rebuildVectorizeIndex,
+  upsertVectorizeVectors
+} from '../tools/echo/build-index.mjs';
+
+function jsonResponse(body, init = {}) {
+  return new Response(JSON.stringify(body), {
+    status: init.status || 200,
+    headers: { 'content-type': 'application/json' }
+  });
+}
+
+function createFetchStub(handler) {
+  const calls = [];
+  const fetchStub = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return handler(String(url), options, calls);
+  };
+  fetchStub.calls = calls;
+  return fetchStub;
+}
+
+function remoteEnv(overrides = {}) {
+  return {
+    CLOUDFLARE_ACCOUNT_ID: 'account-id',
+    CLOUDFLARE_API_TOKEN: 'cf-token',
+    ECHO_VECTORIZE_INDEX: 'echo-index',
+    ECHO_EMBEDDING_API_KEY: 'embedding-key',
+    ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com',
+    ...overrides
+  };
+}
 
 test('parsePostFrontMatter reads published posts and excludes drafts', () => {
   const published = parsePostFrontMatter(`---
@@ -69,22 +101,133 @@ draft: true
   assert.equal(documents.find(document => document.title === 'Public Post').path, '/2026/07/04/public/');
 });
 
-test('indexer file documents Vectorize and text-embedding-3-large defaults', async () => {
-  const script = await readFile(new URL('../scripts/build-echo-index.mjs', import.meta.url), 'utf8');
+test('rebuildVectorizeIndex skips remote requests without Cloudflare env', async () => {
+  const fetchStub = createFetchStub(() => {
+    throw new Error('fetch should not be called');
+  });
 
-  assert.match(script, /text-embedding-3-large/);
-  assert.match(script, /ECHO_VECTORIZE/);
-  assert.match(script, /CLOUDFLARE_ACCOUNT_ID/);
-  assert.match(script, /CLOUDFLARE_API_TOKEN/);
-  assert.match(script, /ECHO_VECTORIZE_INDEX/);
-  assert.match(script, /\/vectors/);
-  assert.match(script, /DELETE/);
-  assert.match(script, /POST/);
+  await rebuildVectorizeIndex([
+    {
+      id: 'public-0',
+      title: 'Public',
+      path: '/2026/07/04/public/',
+      text: '公开正文',
+      chunkIndex: 0
+    }
+  ], {
+    ECHO_EMBEDDING_API_KEY: 'embedding-key',
+    ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+  }, { fetchImpl: fetchStub });
+
+  assert.equal(fetchStub.calls.length, 0);
+});
+
+test('createEmbedding does not duplicate v1 in provider base URLs', async () => {
+  const fetchStub = createFetchStub(() => jsonResponse({
+    data: [{ embedding: [0.1, 0.2, 0.3] }]
+  }));
+
+  const embedding = await createEmbedding('公开正文', remoteEnv({
+    ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com/v1'
+  }), { fetchImpl: fetchStub });
+
+  assert.deepEqual(embedding, [0.1, 0.2, 0.3]);
+  assert.equal(fetchStub.calls[0].url, 'https://embedding.example.com/v1/embeddings');
+  assert.ok(!fetchStub.calls[0].url.includes('/v1/v1/'));
+});
+
+test('bad embedding responses stop before Vectorize upsert or delete', async () => {
+  const fetchStub = createFetchStub(url => {
+    assert.match(url, /\/embeddings$/);
+    return jsonResponse({ data: [{ embedding: [0.1, null, 0.3] }] });
+  });
+
+  await assert.rejects(
+    rebuildVectorizeIndex([
+      {
+        id: 'public-0',
+        title: 'Public',
+        path: '/2026/07/04/public/',
+        text: '公开正文',
+        chunkIndex: 0
+      }
+    ], remoteEnv(), { fetchImpl: fetchStub }),
+    /ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE/
+  );
+
+  assert.equal(fetchStub.calls.length, 1);
+  assert.equal(fetchStub.calls.some(call => call.url.includes('/vectorize/')), false);
+  assert.equal(fetchStub.calls.some(call => call.options.method === 'DELETE'), false);
+});
+
+test('buildEchoVectors validates all embeddings before any Vectorize request', async () => {
+  const fetchStub = createFetchStub((url, options, calls) => {
+    assert.match(url, /\/embeddings$/);
+    if (calls.length === 2) {
+      return jsonResponse({ data: [] });
+    }
+    return jsonResponse({ data: [{ embedding: [0.1, 0.2, 0.3] }] });
+  });
+
+  await assert.rejects(
+    buildEchoVectors([
+      {
+        id: 'public-0',
+        title: 'Public',
+        path: '/2026/07/04/public/',
+        text: '第一段公开正文',
+        chunkIndex: 0
+      },
+      {
+        id: 'public-1',
+        title: 'Public',
+        path: '/2026/07/04/public/',
+        text: '第二段公开正文',
+        chunkIndex: 1
+      }
+    ], remoteEnv(), { fetchImpl: fetchStub }),
+    /ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE/
+  );
+
+  assert.equal(fetchStub.calls.length, 2);
+  assert.equal(fetchStub.calls.some(call => call.url.includes('/vectorize/')), false);
+});
+
+test('Vectorize upsert uses v2 URL, POST multipart content type, and NDJSON vectors', async () => {
+  const fetchStub = createFetchStub(() => jsonResponse({ success: true, count: 1 }));
+  const vector = {
+    id: 'public-0',
+    values: [0.1, 0.2, 0.3],
+    metadata: {
+      title: 'Public',
+      path: '/2026/07/04/public/',
+      text: '公开正文',
+      chunkIndex: 0
+    }
+  };
+
+  await upsertVectorizeVectors([vector], remoteEnv(), { fetchImpl: fetchStub });
+
+  assert.equal(fetchStub.calls.length, 1);
+  assert.equal(
+    fetchStub.calls[0].url,
+    'https://api.cloudflare.com/client/v4/accounts/account-id/vectorize/v2/indexes/echo-index/upsert'
+  );
+  assert.equal(fetchStub.calls[0].options.method, 'POST');
+  assert.equal(fetchStub.calls[0].options.headers.authorization, 'Bearer cf-token');
+  assert.match(fetchStub.calls[0].options.headers['content-type'], /^multipart\/form-data; boundary=/);
+  assert.match(fetchStub.calls[0].options.body, /name="vectors"; filename="vectors\.ndjson"/);
+  assert.match(fetchStub.calls[0].options.body, /Content-Type: application\/x-ndjson/);
+
+  const ndjson = fetchStub.calls[0].options.body.match(/\r\n\r\n([\s\S]*?)\r\n--/)[1];
+  assert.deepEqual(ndjson.trim().split('\n').map(line => JSON.parse(line)), [vector]);
+  assert.equal(fetchStub.calls.some(call => call.options.method === 'DELETE'), false);
 });
 
 test('package scripts run the Echo indexer after static builds without requiring local secrets', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
-  assert.equal(packageJson.scripts['echo:index'], 'node scripts/build-echo-index.mjs');
-  assert.equal(packageJson.scripts.postbuild, 'node scripts/build-echo-index.mjs');
+  assert.equal(packageJson.scripts.build, './tools/hexo-env.sh generate');
+  assert.equal(packageJson.scripts['echo:index'], 'node tools/echo/build-index.mjs');
+  assert.equal(packageJson.scripts.postbuild, 'node tools/echo/build-index.mjs');
 });
