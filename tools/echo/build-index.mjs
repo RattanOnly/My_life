@@ -3,10 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-large';
+const DEFAULT_EMBEDDING_DIMENSIONS = 3072;
 const DEFAULT_MAX_CHUNK_LENGTH = 900;
 const DEFAULT_VECTORIZE_INDEX = 'my-life-echo-large';
 const VECTORIZE_API_BASE = 'https://api.cloudflare.com/client/v4';
-const VECTORIZE_MULTIPART_BOUNDARY = '----echo-indexer-vectors-boundary';
 
 export function parsePostFrontMatter(markdown) {
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -150,13 +150,30 @@ async function readProviderJson(response, { httpErrorCode, invalidResponseCode }
   return body;
 }
 
-function assertValidEmbedding(embedding) {
+function expectedEmbeddingDimensions(env = process.env) {
+  const rawDimensions = env?.ECHO_EMBEDDING_DIMENSIONS;
+  if (rawDimensions === undefined || rawDimensions === '') {
+    return DEFAULT_EMBEDDING_DIMENSIONS;
+  }
+
+  const dimensions = Number(rawDimensions);
+  if (!Number.isInteger(dimensions) || dimensions <= 0) {
+    throw new Error('ECHO_EMBEDDING_DIMENSIONS_INVALID');
+  }
+
+  return dimensions;
+}
+
+function assertValidEmbedding(embedding, expectedDimensions) {
   if (
     !Array.isArray(embedding)
-    || embedding.length === 0
     || !embedding.every(value => typeof value === 'number' && Number.isFinite(value))
   ) {
     throw new Error('ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE');
+  }
+
+  if (embedding.length !== expectedDimensions) {
+    throw new Error('ECHO_EMBEDDING_PROVIDER_INVALID_DIMENSION');
   }
 }
 
@@ -165,24 +182,32 @@ export async function createEmbedding(text, env = process.env, { fetchImpl } = {
     throw new Error('ECHO_EMBEDDING_PROVIDER_MISSING');
   }
 
+  const expectedDimensions = expectedEmbeddingDimensions(env);
+  const providerUrl = buildProviderUrl(env.ECHO_EMBEDDING_BASE_URL, 'embeddings');
+  const fetchFn = resolveFetch(fetchImpl);
+  const request = {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${env.ECHO_EMBEDDING_API_KEY}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: env.ECHO_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL,
+      input: text
+    })
+  };
+
+  let fetchPromise;
+  try {
+    fetchPromise = fetchFn(providerUrl, request);
+  } catch (error) {
+    throw error;
+  }
+
   let response;
   try {
-    response = await resolveFetch(fetchImpl)(buildProviderUrl(env.ECHO_EMBEDDING_BASE_URL, 'embeddings'), {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${env.ECHO_EMBEDDING_API_KEY}`,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: env.ECHO_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL,
-        input: text
-      })
-    });
-  } catch (error) {
-    if (error?.message === 'ECHO_PROVIDER_BASE_URL_INVALID') {
-      throw error;
-    }
-
+    response = await fetchPromise;
+  } catch {
     throw new Error('ECHO_PROVIDER_NETWORK_ERROR');
   }
 
@@ -191,7 +216,7 @@ export async function createEmbedding(text, env = process.env, { fetchImpl } = {
     invalidResponseCode: 'ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE'
   });
   const embedding = body.data?.[0]?.embedding;
-  assertValidEmbedding(embedding);
+  assertValidEmbedding(embedding, expectedDimensions);
 
   return embedding;
 }
@@ -236,21 +261,10 @@ function buildNdjson(vectors) {
   return vectors.map(vector => JSON.stringify(vector)).join('\n') + '\n';
 }
 
-function buildMultipartNdjsonBody(ndjson) {
-  const body = [
-    `--${VECTORIZE_MULTIPART_BOUNDARY}`,
-    'Content-Disposition: form-data; name="vectors"; filename="vectors.ndjson"',
-    'Content-Type: application/x-ndjson',
-    '',
-    ndjson,
-    `--${VECTORIZE_MULTIPART_BOUNDARY}--`,
-    ''
-  ].join('\r\n');
-
-  return {
-    body,
-    contentType: `multipart/form-data; boundary=${VECTORIZE_MULTIPART_BOUNDARY}`
-  };
+function buildVectorizeFormData(ndjson) {
+  const formData = new FormData();
+  formData.append('body', new Blob([ndjson], { type: 'application/x-ndjson' }), 'vectors.ndjson');
+  return formData;
 }
 
 async function readVectorizeJson(response) {
@@ -269,14 +283,12 @@ export async function upsertVectorizeVectors(vectors, env = process.env, { fetch
     return { success: true, count: 0 };
   }
 
-  const { body, contentType } = buildMultipartNdjsonBody(buildNdjson(vectors));
   const response = await resolveFetch(fetchImpl)(vectorizeUrl('upsert', env), {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
-      'content-type': contentType
+      authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`
     },
-    body
+    body: buildVectorizeFormData(buildNdjson(vectors))
   });
 
   return readVectorizeJson(response);

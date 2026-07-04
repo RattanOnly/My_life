@@ -38,6 +38,7 @@ function remoteEnv(overrides = {}) {
     ECHO_VECTORIZE_INDEX: 'echo-index',
     ECHO_EMBEDDING_API_KEY: 'embedding-key',
     ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com',
+    ECHO_EMBEDDING_DIMENSIONS: '3',
     ...overrides
   };
 }
@@ -160,6 +161,29 @@ test('bad embedding responses stop before Vectorize upsert or delete', async () 
   assert.equal(fetchStub.calls.some(call => call.options.method === 'DELETE'), false);
 });
 
+test('embedding dimension mismatch stops before Vectorize upsert', async () => {
+  const fetchStub = createFetchStub(url => {
+    assert.match(url, /\/embeddings$/);
+    return jsonResponse({ data: [{ embedding: [0.1, 0.2] }] });
+  });
+
+  await assert.rejects(
+    rebuildVectorizeIndex([
+      {
+        id: 'public-0',
+        title: 'Public',
+        path: '/2026/07/04/public/',
+        text: '公开正文',
+        chunkIndex: 0
+      }
+    ], remoteEnv(), { fetchImpl: fetchStub }),
+    /ECHO_EMBEDDING_PROVIDER_INVALID_DIMENSION/
+  );
+
+  assert.equal(fetchStub.calls.length, 1);
+  assert.equal(fetchStub.calls.some(call => call.url.includes('/vectorize/')), false);
+});
+
 test('buildEchoVectors validates all embeddings before any Vectorize request', async () => {
   const fetchStub = createFetchStub((url, options, calls) => {
     assert.match(url, /\/embeddings$/);
@@ -193,7 +217,49 @@ test('buildEchoVectors validates all embeddings before any Vectorize request', a
   assert.equal(fetchStub.calls.some(call => call.url.includes('/vectorize/')), false);
 });
 
-test('Vectorize upsert uses v2 URL, POST multipart content type, and NDJSON vectors', async () => {
+test('createEmbedding preserves synchronous fetch stub errors', async () => {
+  await assert.rejects(
+    createEmbedding('公开正文', remoteEnv(), {
+      fetchImpl: () => {
+        throw new Error('programmer bug');
+      }
+    }),
+    /programmer bug/
+  );
+});
+
+test('createEmbedding reports missing fetch without rewriting it as a network error', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+  try {
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      writable: true,
+      value: undefined
+    });
+
+    await assert.rejects(
+      createEmbedding('公开正文', remoteEnv()),
+      /ECHO_FETCH_MISSING/
+    );
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(globalThis, 'fetch', descriptor);
+    } else {
+      delete globalThis.fetch;
+    }
+  }
+});
+
+test('createEmbedding maps rejected fetch calls to provider network errors', async () => {
+  await assert.rejects(
+    createEmbedding('公开正文', remoteEnv(), {
+      fetchImpl: () => Promise.reject(new Error('ECONNRESET'))
+    }),
+    /ECHO_PROVIDER_NETWORK_ERROR/
+  );
+});
+
+test('Vectorize upsert uses v2 URL, POST FormData body field, and NDJSON vectors', async () => {
   const fetchStub = createFetchStub(() => jsonResponse({ success: true, count: 1 }));
   const vector = {
     id: 'public-0',
@@ -215,11 +281,15 @@ test('Vectorize upsert uses v2 URL, POST multipart content type, and NDJSON vect
   );
   assert.equal(fetchStub.calls[0].options.method, 'POST');
   assert.equal(fetchStub.calls[0].options.headers.authorization, 'Bearer cf-token');
-  assert.match(fetchStub.calls[0].options.headers['content-type'], /^multipart\/form-data; boundary=/);
-  assert.match(fetchStub.calls[0].options.body, /name="vectors"; filename="vectors\.ndjson"/);
-  assert.match(fetchStub.calls[0].options.body, /Content-Type: application\/x-ndjson/);
+  assert.equal('content-type' in fetchStub.calls[0].options.headers, false);
+  assert.ok(fetchStub.calls[0].options.body instanceof FormData);
 
-  const ndjson = fetchStub.calls[0].options.body.match(/\r\n\r\n([\s\S]*?)\r\n--/)[1];
+  const file = fetchStub.calls[0].options.body.get('body');
+  assert.ok(file instanceof Blob);
+  assert.equal(file.name, 'vectors.ndjson');
+  assert.equal(file.type, 'application/x-ndjson');
+
+  const ndjson = await file.text();
   assert.deepEqual(ndjson.trim().split('\n').map(line => JSON.parse(line)), [vector]);
   assert.equal(fetchStub.calls.some(call => call.options.method === 'DELETE'), false);
 });
