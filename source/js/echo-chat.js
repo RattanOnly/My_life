@@ -4,9 +4,9 @@
   root.dataset.initialized = 'true';
 
   const form = root.querySelector('[data-echo-form]');
-  const messages = root.querySelector('[data-echo-messages]');
   const status = root.querySelector('[data-echo-status]');
   const messageField = form ? form.querySelector('[name="message"]') : null;
+  const unavailableMessage = 'Echo 还在准备中，等后端接好后就可以说话。';
 
   const setStage = stage => {
     root.dataset.echoStage = stage;
@@ -14,14 +14,6 @@
 
   const setStatus = message => {
     if (status) status.textContent = message;
-  };
-
-  const appendMessage = (role, text) => {
-    if (!messages) return;
-    const item = document.createElement('article');
-    item.className = `echo-message echo-message-${role}`;
-    item.textContent = text;
-    messages.append(item);
   };
 
   if (messageField) {
@@ -33,12 +25,10 @@
   if (form) {
     form.addEventListener('submit', event => {
       event.preventDefault();
-      const text = messageField ? messageField.value.trim() : '';
-      if (!text) return;
-      appendMessage('user', text);
-      if (messageField) messageField.value = '';
-      setStage('thinking');
-      setStatus('Echo 正在想一想。');
+      setStage(messageField && messageField.value.trim() ? 'walk' : 'idle_sit');
+      setStatus(unavailableMessage);
     });
   }
+
+  setStatus(unavailableMessage);
 })();

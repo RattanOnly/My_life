@@ -527,11 +527,13 @@ body.has-background-video {
 }
 
 .echo-boy {
+  --echo-boy-scale: 1;
   position: absolute;
   left: 42px;
   bottom: 8px;
   width: 76px;
   height: 112px;
+  transform: scale(var(--echo-boy-scale));
   transform-origin: 50% 100%;
   transition: transform .28s ease;
 }
@@ -670,6 +672,9 @@ body.has-background-video {
   padding: 12px 14px;
   border-radius: 14px;
   line-height: 1.75;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  min-width: 0;
 }
 
 .echo-message-user {
@@ -721,8 +726,8 @@ body.has-background-video {
 }
 
 @keyframes echo-boy-walk {
-  0%, 100% { transform: translateX(0) rotate(-1deg); }
-  50% { transform: translateX(10px) rotate(1deg); }
+  0%, 100% { transform: scale(var(--echo-boy-scale)) translateX(0) rotate(-1deg); }
+  50% { transform: scale(var(--echo-boy-scale)) translateX(10px) rotate(1deg); }
 }
 
 @keyframes echo-thought-pulse {
@@ -740,7 +745,7 @@ body.has-background-video {
   }
 
   .echo-boy {
-    transform: scale(.82);
+    --echo-boy-scale: .82;
     left: 18px;
   }
 

@@ -43,3 +43,23 @@ test('Echo frontend does not use localStorage or sessionStorage for conversation
   assert.doesNotMatch(script, /sessionStorage/);
   assert.doesNotMatch(script, /indexedDB/);
 });
+
+test('Echo frontend submit stays clearly unavailable until backend is connected', async () => {
+  const script = await readFile(new URL('../source/js/echo-chat.js', import.meta.url), 'utf8');
+
+  assert.match(script, /Echo 还在准备中，等后端接好后就可以说话。/);
+  assert.doesNotMatch(script, /addEventListener\('submit'[\s\S]*appendMessage\('user'/);
+  assert.doesNotMatch(script, /setStage\('thinking'\)/);
+});
+
+test('Echo character scaling and message text wrapping are resilient', async () => {
+  const styles = await readFile(new URL('../source/_data/styles.styl', import.meta.url), 'utf8');
+
+  assert.match(styles, /--echo-boy-scale:\s*1/);
+  assert.match(styles, /--echo-boy-scale:\s*\.82/);
+  assert.match(styles, /@keyframes echo-boy-walk[\s\S]*scale\(var\(--echo-boy-scale\)\)/);
+  assert.match(
+    styles,
+    /\.echo-message\s*\{[\s\S]*overflow-wrap:\s*anywhere[\s\S]*white-space:\s*pre-wrap[\s\S]*min-width:\s*0/
+  );
+});
