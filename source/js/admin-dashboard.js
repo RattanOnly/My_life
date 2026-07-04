@@ -357,7 +357,10 @@
 
   const setEchoStatusUnavailable = () => {
     if (echoEnabled) echoEnabled.textContent = '无法加载';
-    if (echoToggleButton) echoToggleButton.disabled = true;
+    if (echoToggleButton) {
+      echoToggleButton.textContent = 'Echo 无法加载';
+      echoToggleButton.disabled = true;
+    }
   };
 
   const renderEchoUsage = usage => {

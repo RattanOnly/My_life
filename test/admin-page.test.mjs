@@ -176,6 +176,7 @@ const createAdminRuntime = ({
 
   content.hidden = true;
   echoEnabled.textContent = '--';
+  echoToggleButton.textContent = '暂停 Echo';
   loginForm.formValues.password = 'secret';
   root.dataset.adminDataEndpoint = '/unit-admin-data';
   root.dataset.adminCommentsEndpoint = '/unit-admin-comments';
@@ -445,6 +446,35 @@ test('admin dashboard keeps Echo enabled state when usage loading fails', async 
   assert.equal(runtime.echoUsage.textContent, 'Echo 状态暂时无法加载。');
 });
 
+test('admin dashboard disables Echo toggle when status loading fails', async () => {
+  const runtime = createAdminRuntime({
+    echoStatusResponses: [{ ok: false, status: 500, body: {} }],
+    echoUsageResponses: [{
+      summary: {
+        totalCount: 1,
+        successCount: 1,
+        failureCount: 0,
+        promptTokens: 4,
+        completionTokens: 8
+      },
+      recentEvents: []
+    }]
+  });
+
+  await runAdminScript(runtime);
+  runtime.loginForm.dispatch('submit');
+  await settleAsyncWork();
+
+  assert.equal(runtime.content.hidden, false);
+  assert.equal(runtime.onlineCount.textContent, '3');
+  assert.equal(runtime.comments.children.length, 1);
+  assert.equal(runtime.visitorLogs.children.length, 1);
+  assert.equal(runtime.echoEnabled.textContent, '无法加载');
+  assert.equal(runtime.echoToggleButton.disabled, true);
+  assert.notEqual(runtime.echoToggleButton.textContent, '暂停 Echo');
+  assert.match(runtime.echoToggleButton.textContent, /无法加载|不可用/);
+});
+
 test('admin dashboard disables Echo toggle in flight and keeps POST result when refresh usage fails', async () => {
   const postToggle = createDeferred();
   const runtime = createAdminRuntime({
@@ -479,6 +509,38 @@ test('admin dashboard disables Echo toggle in flight and keeps POST result when 
   assert.equal(runtime.echoToggleButton.disabled, false);
   assert.equal(runtime.status.textContent, 'Echo 已暂停。');
   assert.equal(runtime.echoUsage.textContent, 'Echo 状态暂时无法加载。');
+});
+
+test('admin dashboard restores previous Echo enabled state when toggle POST fails', async () => {
+  const postToggle = createDeferred();
+  const runtime = createAdminRuntime({
+    echoStatusResponses: [{ enabled: true }],
+    echoUsageResponses: [{ summary: {}, recentEvents: [] }],
+    echoPostResponses: [postToggle.promise]
+  });
+
+  await runAdminScript(runtime);
+  runtime.loginForm.dispatch('submit');
+  await settleAsyncWork();
+  assert.equal(runtime.echoEnabled.textContent, '开启');
+  assert.equal(runtime.echoToggleButton.textContent, '暂停 Echo');
+  assert.equal(runtime.echoToggleButton.disabled, false);
+
+  runtime.echoToggleButton.dispatch('click');
+  await settleAsyncWork();
+
+  const postCallsWhilePending = runtime.calls.filter(call => call.url === '/unit-admin-echo' && call.options.method === 'POST');
+  assert.equal(runtime.echoToggleButton.disabled, true);
+  assert.equal(postCallsWhilePending.length, 1);
+  assert.deepEqual(JSON.parse(postCallsWhilePending[0].options.body), { enabled: false });
+
+  postToggle.resolve({ ok: false, status: 500, body: {} });
+  await settleAsyncWork();
+
+  assert.equal(runtime.echoEnabled.textContent, '开启');
+  assert.equal(runtime.echoToggleButton.textContent, '暂停 Echo');
+  assert.equal(runtime.echoToggleButton.disabled, false);
+  assert.equal(runtime.status.textContent, 'Echo 状态更新失败。');
 });
 
 test('admin dashboard renders Echo usage safely without empty lists or conversation text', async () => {
