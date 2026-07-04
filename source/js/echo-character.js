@@ -154,6 +154,19 @@
       var currentState = 'idle';
       var destroyed = false;
       var settleReadyOnDestroy = null;
+      var readySettled = false;
+      var resolveReady = noop;
+      var ready = new Promise(function createReady(resolve) {
+        resolveReady = resolve;
+      });
+
+      function finishReady(value) {
+        if (readySettled) {
+          return;
+        }
+        readySettled = true;
+        resolveReady(value);
+      }
 
       function fallbackReady() {
         if (destroyed) {
@@ -207,13 +220,14 @@
 
       function destroy() {
         destroyed = true;
+        finishReady(false);
         if (settleReadyOnDestroy) {
           settleReadyOnDestroy();
         }
         cleanupRive();
       }
 
-      var ready = Promise.resolve().then(function initialize() {
+      Promise.resolve().then(function initialize() {
         if (destroyed) {
           return false;
         }
@@ -341,6 +355,15 @@
           }
           return fallbackReady();
         });
+      }).then(finishReady, function onInitializeError(error) {
+        if (destroyed) {
+          finishReady(false);
+          return;
+        }
+        if (global.console && typeof global.console.warn === 'function') {
+          global.console.warn('Echo character Rive fallback:', error);
+        }
+        finishReady(fallbackReady());
       });
 
       return {

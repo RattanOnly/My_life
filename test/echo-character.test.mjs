@@ -503,6 +503,27 @@ test('destroy before the Rive runtime resolves prevents instance creation', asyn
   assert.equal(shell.dataset.echoCharacterReady, undefined);
 });
 
+test('destroy while Rive runtime loading is pending settles ready false', async () => {
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: () => new Promise(() => {})
+  }).create(root);
+
+  await new Promise(resolve => setImmediate(resolve));
+
+  adapter.destroy();
+
+  const ready = await Promise.race([
+    adapter.ready,
+    new Promise((resolve, reject) => {
+      setTimeout(() => reject(new Error('adapter.ready did not settle while runtime loading was pending')), 50);
+    })
+  ]);
+  assert.equal(ready, false);
+  assert.notEqual(shell.dataset.echoCharacterReady, 'rive');
+});
+
 test('falls back when the Rive constructor throws synchronously', async () => {
   const EchoCharacter = await loadCharacterApi();
   const { root, shell } = createRoot();
