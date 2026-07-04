@@ -9,8 +9,11 @@ test('Rive runtime is copied from npm package before Hexo generation', async () 
 
   assert.equal(packageJson.dependencies['@rive-app/canvas-lite'], '^2.38.4');
   assert.equal(packageJson.scripts['copy:rive'], 'node tools/echo/copy-rive-runtime.mjs');
-  assert.match(packageJson.scripts.build, /npm run copy:rive &&/);
-  assert.match(packageJson.scripts.predev, /npm run copy:rive &&/);
+  assert.equal(packageJson.scripts.build, 'npm run copy:rive && ./tools/hexo-env.sh generate');
+  assert.equal(
+    packageJson.scripts.predev,
+    'npm run copy:rive && ./tools/hexo-env.sh clean && ./tools/hexo-env.sh generate && ./tools/hexo-env.sh algolia'
+  );
 
   assert.match(copyScript, /@rive-app\/canvas-lite\/rive\.js/);
   assert.match(copyScript, /rive\.wasm/);
