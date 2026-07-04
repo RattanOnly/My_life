@@ -22,13 +22,19 @@
   const refreshButton = root.querySelector('[data-admin-refresh]');
   const logoutButton = root.querySelector('[data-admin-logout]');
   const clearVisitsButton = root.querySelector('[data-admin-clear-visits]');
+  const echoEnabled = root.querySelector('[data-admin-echo-enabled]');
+  const echoToggleButton = root.querySelector('[data-admin-echo-toggle]');
+  const echoUsage = root.querySelector('[data-admin-echo-usage]');
   const adminDataEndpoint = root.dataset.adminDataEndpoint || '/admin-data';
   const adminCommentsEndpoint = root.dataset.adminCommentsEndpoint || '/admin-comments';
   const adminOwnerIpMarksEndpoint = root.dataset.adminOwnerIpMarksEndpoint || '/admin-owner-ip-marks';
   const adminClearVisitsEndpoint = root.dataset.adminClearVisitsEndpoint || '/admin-visits';
+  const adminEchoStatusEndpoint = root.dataset.adminEchoStatusEndpoint || '/admin-echo';
+  const adminEchoUsageEndpoint = root.dataset.adminEchoUsageEndpoint || '/admin-echo-usage';
   const PASSWORD_STORAGE_KEY = 'admin_dashboard_password';
 
   let adminPassword = '';
+  let echoIsEnabled = true;
   const visitorFilterState = {
     visitorPage: 1,
     visitorPageSize: 20,
@@ -330,6 +336,61 @@
     });
   };
 
+  const renderEchoUsage = usage => {
+    clearNode(echoUsage);
+    if (!echoUsage) return;
+
+    const summary = usage?.summary || {};
+    const total = document.createElement('p');
+    total.textContent = `调用 ${summary.totalCount || 0} 次，成功 ${summary.successCount || 0} 次，失败 ${summary.failureCount || 0} 次。`;
+
+    const tokens = document.createElement('p');
+    tokens.textContent = `Token 估算：输入 ${summary.promptTokens || 0}，输出 ${summary.completionTokens || 0}。`;
+
+    const list = document.createElement('ul');
+    const recentEvents = Array.isArray(usage?.recentEvents) ? usage.recentEvents : [];
+    recentEvents.slice(0, 5).forEach(event => {
+      const item = document.createElement('li');
+      const time = event.createdAt ? new Date(event.createdAt).toLocaleString() : '未知时间';
+      item.textContent = `${time} · ${event.status || 'unknown'} · 输入 ${event.promptTokens || 0} · 输出 ${event.completionTokens || 0}`;
+      list.append(item);
+    });
+
+    echoUsage.append(total, tokens, list);
+  };
+
+  const loadEchoAdmin = async () => {
+    const [statusResponse, usageResponse] = await Promise.all([
+      adminFetch(adminEchoStatusEndpoint, { cache: 'no-store' }),
+      adminFetch(adminEchoUsageEndpoint, { cache: 'no-store' })
+    ]);
+
+    if (!statusResponse.ok || !usageResponse.ok) return;
+
+    const statusBody = await statusResponse.json();
+    const usageBody = await usageResponse.json();
+    echoIsEnabled = statusBody.enabled !== false;
+    if (echoEnabled) echoEnabled.textContent = echoIsEnabled ? '开启' : '暂停';
+    if (echoToggleButton) echoToggleButton.textContent = echoIsEnabled ? '暂停 Echo' : '开启 Echo';
+    renderEchoUsage(usageBody);
+  };
+
+  const toggleEchoEnabled = async () => {
+    const response = await adminFetch(adminEchoStatusEndpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled: !echoIsEnabled })
+    });
+
+    if (!response.ok) {
+      setStatus('Echo 状态更新失败。');
+      return;
+    }
+
+    await loadEchoAdmin();
+    setStatus(echoIsEnabled ? 'Echo 已开启。' : 'Echo 已暂停。');
+  };
+
   async function loadDashboard() {
     setStatus('正在加载...');
     const [adminDataResponse, commentsResponse] = await Promise.all([
@@ -352,6 +413,9 @@
     renderVisitorPagination(adminData.visitorLogsPagination);
     renderComments(Array.isArray(commentsData.comments) ? commentsData.comments : []);
     renderCommentPagination(commentsData.commentsPagination);
+    await loadEchoAdmin().catch(() => {
+      if (echoUsage) echoUsage.textContent = 'Echo 状态暂时无法加载。';
+    });
     content.hidden = false;
     loginForm.hidden = true;
     localStorage.setItem(PASSWORD_STORAGE_KEY, adminPassword);
@@ -469,6 +533,14 @@
     clearVisitsButton.addEventListener('click', () => {
       clearVisitorLogs().catch(() => {
         setStatus('清空最近访问失败。');
+      });
+    });
+  }
+
+  if (echoToggleButton) {
+    echoToggleButton.addEventListener('click', () => {
+      toggleEchoEnabled().catch(() => {
+        setStatus('Echo 状态更新失败。');
       });
     });
   }

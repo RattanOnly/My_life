@@ -12,6 +12,8 @@ data-admin-data-endpoint="/admin-data"
 data-admin-comments-endpoint="/admin-comments"
 data-admin-owner-ip-marks-endpoint="/admin-owner-ip-marks"
 data-admin-clear-visits-endpoint="/admin-visits"
+data-admin-echo-status-endpoint="/admin-echo"
+data-admin-echo-usage-endpoint="/admin-echo-usage"
 >
 <form class="admin-login" data-admin-login>
 <label>
@@ -32,6 +34,15 @@ data-admin-clear-visits-endpoint="/admin-visits"
 <section class="admin-section">
 <h2>当前在线</h2>
 <p class="admin-online-count"><span data-admin-online-count>--</span> 人</p>
+</section>
+
+<section class="admin-section">
+<h2>Echo 管理</h2>
+<p class="admin-echo-status">当前状态：<span data-admin-echo-enabled>--</span></p>
+<div class="admin-filter-actions">
+<button type="button" data-admin-echo-toggle>暂停 Echo</button>
+</div>
+<div class="admin-echo-usage" data-admin-echo-usage></div>
 </section>
 
 <section class="admin-section">
