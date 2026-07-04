@@ -297,7 +297,7 @@ test('Vectorize upsert uses v2 URL, POST FormData body field, and NDJSON vectors
 test('package scripts run the Echo indexer after static builds without requiring local secrets', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
-  assert.equal(packageJson.scripts.build, './tools/hexo-env.sh generate');
+  assert.equal(packageJson.scripts.build, 'npm run copy:rive && ./tools/hexo-env.sh generate');
   assert.equal(packageJson.scripts['echo:index'], 'node tools/echo/build-index.mjs');
   assert.equal(packageJson.scripts.postbuild, 'node tools/echo/build-index.mjs');
 });
