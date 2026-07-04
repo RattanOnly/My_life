@@ -188,8 +188,8 @@
             if (typeof runtime.RuntimeLoader.setWasmUrl === 'function') {
               runtime.RuntimeLoader.setWasmUrl(RIVE_WASM_SRC);
             }
-            if (typeof runtime.RuntimeLoader.setFallbackUrl === 'function') {
-              runtime.RuntimeLoader.setFallbackUrl(RIVE_FALLBACK_WASM_SRC);
+            if (typeof runtime.RuntimeLoader.setWasmFallbackUrl === 'function') {
+              runtime.RuntimeLoader.setWasmFallbackUrl(RIVE_FALLBACK_WASM_SRC);
             }
           }
 
@@ -197,28 +197,45 @@
             fit: runtime.Fit && runtime.Fit.Contain,
             alignment: runtime.Alignment && runtime.Alignment.Center
           }) : undefined;
-          riveInstance = new Rive({
-            src: shell.dataset.echoRiveSrc || shell.getAttribute('data-echo-rive-src') || RIVE_SRC,
-            canvas: canvas,
-            autoplay: true,
-            stateMachines: STATE_MACHINE,
-            layout: layout
-          });
+          return new Promise(function createRiveInstance(resolve) {
+            function completeFallback(error) {
+              if (global.console && typeof global.console.warn === 'function') {
+                global.console.warn('Echo character Rive fallback:', error);
+              }
+              resolve(fallbackReady());
+            }
 
-          inputs = createInputSet(
-            typeof riveInstance.stateMachineInputs === 'function'
-              ? riveInstance.stateMachineInputs(STATE_MACHINE) || []
-              : []
-          );
-          if (inputs.reducedMotion) {
-            inputs.reducedMotion.value = false;
-          }
-          if (typeof riveInstance.resizeDrawingSurfaceToCanvas === 'function') {
-            riveInstance.resizeDrawingSurfaceToCanvas();
-          }
-          applyState(currentState);
-          setReady(shell, 'rive');
-          return true;
+            function completeLoad() {
+              inputs = createInputSet(
+                typeof riveInstance.stateMachineInputs === 'function'
+                  ? riveInstance.stateMachineInputs(STATE_MACHINE) || []
+                  : []
+              );
+              if (inputs.reducedMotion) {
+                inputs.reducedMotion.value = false;
+              }
+              if (typeof riveInstance.resizeDrawingSurfaceToCanvas === 'function') {
+                riveInstance.resizeDrawingSurfaceToCanvas();
+              }
+              applyState(currentState);
+              setReady(shell, 'rive');
+              resolve(true);
+            }
+
+            try {
+              riveInstance = new Rive({
+                src: shell.dataset.echoRiveSrc || shell.getAttribute('data-echo-rive-src') || RIVE_SRC,
+                canvas: canvas,
+                autoplay: true,
+                stateMachines: STATE_MACHINE,
+                layout: layout,
+                onLoad: completeLoad,
+                onLoadError: completeFallback
+              });
+            } catch (error) {
+              completeFallback(error);
+            }
+          });
         }).catch(function onError(error) {
           if (global.console && typeof global.console.warn === 'function') {
             global.console.warn('Echo character Rive fallback:', error);

@@ -85,6 +85,8 @@ test('maps semantic states to fake Rive state machine inputs', async () => {
   const attention = { fired: 0, fire() { this.fired += 1; } };
   const mode = { name: 'mode', value: -1 };
   const reducedMotion = { name: 'reducedMotion', value: true };
+  let riveOptions = null;
+  let readySettled = false;
   const calls = {
     stateMachineInputs: [],
     resizeDrawingSurfaceToCanvas: 0,
@@ -93,6 +95,7 @@ test('maps semantic states to fake Rive state machine inputs', async () => {
   };
   class FakeRive {
     constructor(options) {
+      riveOptions = options;
       calls.src = options.src;
     }
 
@@ -115,13 +118,27 @@ test('maps semantic states to fake Rive state machine inputs', async () => {
   const adapter = EchoCharacter.createWithDeps({
     loadRive: async () => ({
       Rive: FakeRive,
-      RuntimeLoader: { setWasmUrl(url) { calls.wasmUrl = url; }, setFallbackUrl(url) { calls.fallbackUrl = url; } },
+      RuntimeLoader: { setWasmUrl(url) { calls.wasmUrl = url; }, setWasmFallbackUrl(url) { calls.fallbackUrl = url; } },
       Layout: class {},
       Fit: { Contain: 'contain' },
       Alignment: { Center: 'center' }
     })
   }).create(root);
 
+  adapter.ready.then(() => {
+    readySettled = true;
+  });
+  await new Promise(resolve => setImmediate(resolve));
+
+  assert.ok(riveOptions);
+  assert.equal(typeof riveOptions.onLoad, 'function');
+  assert.equal(typeof riveOptions.onLoadError, 'function');
+  assert.deepEqual(calls.stateMachineInputs, []);
+  assert.equal(calls.resizeDrawingSurfaceToCanvas, 0);
+  assert.equal(shell.dataset.echoCharacterReady, undefined);
+  assert.equal(readySettled, false);
+
+  riveOptions.onLoad();
   assert.equal(await adapter.ready, true);
   assert.equal(calls.src, '/echo/assets/echo-boy.riv');
   assert.deepEqual(calls.stateMachineInputs, ['EchoBoyState']);
@@ -143,6 +160,35 @@ test('maps semantic states to fake Rive state machine inputs', async () => {
 
   adapter.destroy();
   assert.equal(calls.cleanup, 1);
+});
+
+test('falls back when the Rive instance reports onLoadError', async () => {
+  let riveOptions = null;
+  class FakeRive {
+    constructor(options) {
+      riveOptions = options;
+    }
+  }
+
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell, fallback } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: async () => ({
+      Rive: FakeRive,
+      RuntimeLoader: { setWasmUrl() {}, setWasmFallbackUrl() {} }
+    })
+  }).create(root);
+
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(riveOptions);
+
+  adapter.setState('thinking');
+  riveOptions.onLoadError(new Error('rive file failed'));
+
+  assert.equal(await adapter.ready, false);
+  assert.equal(shell.dataset.echoCharacterReady, 'fallback');
+  assert.equal(shell.dataset.echoCharacterState, 'thinking');
+  assert.equal(fallback.dataset.echoCharacterState, 'thinking');
 });
 
 test('uses fallback immediately for reduced motion without loading Rive', async () => {
