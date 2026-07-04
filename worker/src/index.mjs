@@ -847,13 +847,18 @@ async function handleEchoStatus(env) {
 async function handleAdminEcho(request, env) {
   if (!isAuthorizedAdmin(request, env)) return unauthorized();
 
-  const db = requireVisitorDb(env);
   if (request.method === 'GET') {
+    const db = requireVisitorDb(env);
     return echoJson({ enabled: await readEchoEnabled(db) });
   }
 
   const body = await readEchoJson(request);
-  await writeEchoEnabled(db, Boolean(body.enabled));
+  if (typeof body.enabled !== 'boolean') {
+    return json({ error: 'enabled must be boolean' }, { status: 400 });
+  }
+
+  const db = requireVisitorDb(env);
+  await writeEchoEnabled(db, body.enabled);
   return new Response(null, { status: 204 });
 }
 

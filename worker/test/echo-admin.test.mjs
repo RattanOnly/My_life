@@ -2,10 +2,26 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
+import { readEchoEnabled } from '../src/echo-utils.mjs';
 import worker from '../src/index.mjs';
 
 function createEchoDb(firstResults = []) {
   const calls = [];
+
+  function nextResult(method) {
+    if (!firstResults.length) return method === 'all' ? [] : null;
+
+    const result = firstResults.shift();
+    if (result instanceof Error) throw result;
+
+    if (method === 'all') {
+      assert.ok(Array.isArray(result), 'Expected .all() result queue item to be an array');
+    } else {
+      assert.ok(result === null || (typeof result === 'object' && !Array.isArray(result)), 'Expected .first() result queue item to be an object or null');
+    }
+
+    return result;
+  }
 
   return {
     calls,
@@ -24,11 +40,11 @@ function createEchoDb(firstResults = []) {
         },
         async all() {
           call.all = true;
-          return { results: firstResults.shift() || [] };
+          return { results: nextResult('all') };
         },
         async first() {
           call.first = true;
-          return firstResults.shift() || null;
+          return nextResult('first');
         }
       };
     }
@@ -106,6 +122,88 @@ test('POST /admin-echo updates pause state for the owner', async () => {
   assert.match(db.calls[0].sql, /INSERT INTO echo_settings/i);
   assert.match(db.calls[0].sql, /ON CONFLICT/i);
   assert.deepEqual(db.calls[0].values, ['is_enabled', '1']);
+});
+
+test('POST /admin-echo writes disabled state for the owner', async () => {
+  const db = createEchoDb();
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-echo', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer secret-pass',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ enabled: false })
+  }), {
+    VISITOR_DB: db,
+    ADMIN_PASSWORD: 'secret-pass'
+  });
+
+  assert.equal(response.status, 204);
+  assert.deepEqual(db.calls[0].values, ['is_enabled', '0']);
+});
+
+test('POST /admin-echo rejects string enabled values without writing', async () => {
+  const db = createEchoDb();
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-echo', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer secret-pass',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ enabled: 'false' })
+  }), {
+    VISITOR_DB: db,
+    ADMIN_PASSWORD: 'secret-pass'
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: 'enabled must be boolean' });
+  assert.equal(db.calls.length, 0);
+});
+
+test('POST /admin-echo rejects empty or unreadable bodies without writing', async () => {
+  for (const request of [
+    new Request('https://visitor.example.com/admin-echo', {
+      method: 'POST',
+      headers: { authorization: 'Bearer secret-pass' }
+    }),
+    new Request('https://visitor.example.com/admin-echo', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer secret-pass',
+        'content-type': 'application/json'
+      },
+      body: '{'
+    })
+  ]) {
+    const db = createEchoDb();
+    const response = await worker.fetch(request, {
+      VISITOR_DB: db,
+      ADMIN_PASSWORD: 'secret-pass'
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'enabled must be boolean' });
+    assert.equal(db.calls.length, 0);
+  }
+});
+
+test('GET /echo-status defaults enabled when Echo settings migration has not run yet', async () => {
+  const response = await worker.fetch(new Request('https://visitor.example.com/echo-status'), {
+    VISITOR_DB: createEchoDb([new Error('D1_ERROR: no such table: echo_settings')])
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { enabled: true });
+});
+
+test('readEchoEnabled rethrows ordinary D1 errors', async () => {
+  const db = createEchoDb([new Error('D1_ERROR: database is locked')]);
+
+  await assert.rejects(
+    () => readEchoEnabled(db),
+    /database is locked/
+  );
 });
 
 test('GET /admin-echo-usage returns no-content usage summary', async () => {

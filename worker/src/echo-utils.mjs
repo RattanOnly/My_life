@@ -24,11 +24,21 @@ export function cleanText(value, maxLength) {
 }
 
 export async function readEchoEnabled(db) {
-  const row = await db.prepare(`
-    SELECT setting_value
-    FROM echo_settings
-    WHERE setting_key = ?1
-  `).bind(ECHO_SETTING_ENABLED_KEY).first();
+  let row;
+  try {
+    row = await db.prepare(`
+      SELECT setting_value
+      FROM echo_settings
+      WHERE setting_key = ?1
+    `).bind(ECHO_SETTING_ENABLED_KEY).first();
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/no such table:\s*echo_settings/i.test(message)) {
+      return true;
+    }
+
+    throw error;
+  }
 
   return row?.setting_value !== '0';
 }
