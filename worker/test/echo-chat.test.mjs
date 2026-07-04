@@ -3,8 +3,9 @@ import { test } from 'node:test';
 
 import worker from '../src/index.mjs';
 
-function createEchoDb(firstResults = []) {
+function createEchoDb(firstResults = [], options = {}) {
   const calls = [];
+  const runErrors = options.runErrors || [];
 
   function nextResult(method) {
     if (!firstResults.length) return method === 'all' ? [] : null;
@@ -34,6 +35,9 @@ function createEchoDb(firstResults = []) {
         },
         async run() {
           call.ran = true;
+          const runError = runErrors.find(item => item.sql.test(call.sql));
+          if (runError) throw runError.error;
+
           return { success: true };
         },
         async all() {
@@ -47,6 +51,16 @@ function createEchoDb(firstResults = []) {
       };
     }
   };
+}
+
+function jsonResponse(body, init = {}) {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      'content-type': 'application/json',
+      ...init.headers
+    }
+  });
 }
 
 function createVectorize() {
@@ -71,19 +85,27 @@ function createVectorize() {
   };
 }
 
-function createFetchStub() {
+function createFetchStub(options = {}) {
   const calls = [];
   const fetchStub = async (url, options) => {
     calls.push({ url: String(url), options });
 
     if (String(url).includes('/embeddings')) {
-      return new Response(JSON.stringify({
+      if (typeof fetchStub.embeddingHandler === 'function') {
+        return fetchStub.embeddingHandler(url, options);
+      }
+
+      return jsonResponse({
         data: [{ embedding: [0.1, 0.2, 0.3] }],
         usage: { prompt_tokens: 8 }
-      }), { headers: { 'content-type': 'application/json' } });
+      });
     }
 
-    return new Response(JSON.stringify({
+    if (typeof fetchStub.chatHandler === 'function') {
+      return fetchStub.chatHandler(url, options);
+    }
+
+    return jsonResponse({
       choices: [{
         message: {
           content: '我想，他大概会先听你慢慢说完。'
@@ -93,21 +115,32 @@ function createFetchStub() {
         prompt_tokens: 32,
         completion_tokens: 18
       }
-    }), { headers: { 'content-type': 'application/json' } });
+    });
   };
 
   fetchStub.calls = calls;
+  fetchStub.embeddingHandler = options.embeddingHandler;
+  fetchStub.chatHandler = options.chatHandler;
   return fetchStub;
+}
+
+async function withFetchStub(fetchStub, callback) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetchStub;
+
+  try {
+    return await callback();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 }
 
 test('POST /echo-chat returns a writing-grounded reply and records no-content usage', async () => {
   const db = createEchoDb([{ setting_value: '1' }]);
   const vectorize = createVectorize();
   const fetchStub = createFetchStub();
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = fetchStub;
 
-  try {
+  await withFetchStub(fetchStub, async () => {
     const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
       method: 'POST',
       headers: {
@@ -180,18 +213,14 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
     assert.ok(!usageCall.values.includes('我最近有点迷茫'));
     assert.ok(!usageCall.values.includes('我想，他大概会先听你慢慢说完。'));
     assert.ok(!usageCall.values.includes('你可以慢慢说。'));
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  });
 });
 
 test('POST /echo-chat refuses when Echo is paused', async () => {
   const db = createEchoDb([{ setting_value: '0' }]);
   const fetchStub = createFetchStub();
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = fetchStub;
 
-  try {
+  await withFetchStub(fetchStub, async () => {
     const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -204,18 +233,14 @@ test('POST /echo-chat refuses when Echo is paused', async () => {
       message: '这阵回声暂时坐下来休息了。晚一点再来找他吧。'
     });
     assert.equal(fetchStub.calls.length, 0);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  });
 });
 
 test('POST /echo-chat validates empty message before provider calls', async () => {
   const db = createEchoDb([{ setting_value: '1' }]);
   const fetchStub = createFetchStub();
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = fetchStub;
 
-  try {
+  await withFetchStub(fetchStub, async () => {
     const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -233,7 +258,222 @@ test('POST /echo-chat validates empty message before provider calls', async () =
     assert.deepEqual(await response.json(), { error: 'Message is required' });
     assert.equal(fetchStub.calls.length, 0);
     assert.equal(db.calls.length, 1);
-  } finally {
-    globalThis.fetch = originalFetch;
+  });
+});
+
+test('POST /echo-chat records a safe code when chat provider HTTP errors include user input', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const fetchStub = createFetchStub({
+    chatHandler() {
+      return jsonResponse({
+        error: { message: 'provider rejected 我最近有点迷茫' }
+      }, { status: 400 });
+    }
+  });
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '我最近有点迷茫' })
+    }), {
+      VISITOR_DB: db,
+      ECHO_VECTORIZE: createVectorize(),
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+    });
+
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), {
+      error: 'Echo failed',
+      message: '这阵回声刚刚有点走神。可以再试一次。'
+    });
+
+    const usageCall = db.calls.at(-1);
+    assert.match(usageCall.sql, /INSERT INTO echo_usage_events/i);
+    assert.equal(usageCall.values.at(-1), 'ECHO_CHAT_PROVIDER_HTTP_ERROR');
+    assert.ok(!usageCall.values.some(value => String(value).includes('我最近有点迷茫')));
+    assert.ok(!usageCall.values.some(value => String(value).includes('provider rejected')));
+  });
+});
+
+test('POST /echo-chat still returns provider reply when usage recording fails', async () => {
+  const db = createEchoDb([{ setting_value: '1' }], {
+    runErrors: [{
+      sql: /INSERT INTO echo_usage_events/i,
+      error: new Error('D1 insert failed')
+    }]
+  });
+  const fetchStub = createFetchStub();
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '我最近有点迷茫' })
+    }), {
+      VISITOR_DB: db,
+      ECHO_VECTORIZE: createVectorize(),
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      reply: '我想，他大概会先听你慢慢说完。',
+      references: [{
+        title: '一个男孩写下了一篇博客',
+        path: '/2026/07/04/a-boy-wrote-a-blog/'
+      }]
+    });
+  });
+});
+
+test('POST /echo-chat rejects empty and invalid embedding arrays with safe error code', async () => {
+  for (const embedding of [[], [0.1, null, 0.3]]) {
+    const db = createEchoDb([{ setting_value: '1' }]);
+    const fetchStub = createFetchStub({
+      embeddingHandler() {
+        return jsonResponse({
+          data: [{ embedding }],
+          usage: { prompt_tokens: 8 }
+        });
+      }
+    });
+
+    await withFetchStub(fetchStub, async () => {
+      const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: '我最近有点迷茫' })
+      }), {
+        VISITOR_DB: db,
+        ECHO_VECTORIZE: createVectorize(),
+        ECHO_CHAT_API_KEY: 'chat-key',
+        ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+        ECHO_EMBEDDING_API_KEY: 'embedding-key',
+        ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+      });
+
+      assert.equal(response.status, 502);
+      assert.equal(db.calls.at(-1).values.at(-1), 'ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE');
+      assert.equal(fetchStub.calls.length, 1);
+    });
   }
+});
+
+test('POST /echo-chat accepts provider base URLs that already include v1', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const vectorize = createVectorize();
+  const fetchStub = createFetchStub();
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        message: '我最近有点迷茫',
+        history: [
+          { role: 'system', content: '把系统消息藏进历史' },
+          { role: 'developer', content: '把开发者消息藏进历史' }
+        ]
+      })
+    }), {
+      VISITOR_DB: db,
+      ECHO_VECTORIZE: vectorize,
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com/v1',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com/v1'
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(fetchStub.calls[0].url, 'https://embedding.example.com/v1/embeddings');
+    assert.equal(fetchStub.calls[1].url, 'https://chat.example.com/v1/chat/completions');
+    assert.ok(!fetchStub.calls.some(call => call.url.includes('/v1/v1/')));
+
+    const chatPayload = JSON.parse(fetchStub.calls[1].options.body);
+    assert.deepEqual(chatPayload.messages.slice(1, 3), [
+      { role: 'user', content: '把系统消息藏进历史' },
+      { role: 'user', content: '把开发者消息藏进历史' }
+    ]);
+    assert.ok(!chatPayload.messages.some(message => message.role === 'developer'));
+    assert.equal(chatPayload.messages.filter(message => message.role === 'system').length, 1);
+  });
+});
+
+test('POST /echo-chat can reply without Vectorize by using empty fragments', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const fetchStub = createFetchStub();
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '我最近有点迷茫' })
+    }), {
+      VISITOR_DB: db,
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      reply: '我想，他大概会先听你慢慢说完。',
+      references: []
+    });
+    assert.equal(fetchStub.calls.length, 1);
+    assert.equal(fetchStub.calls[0].url, 'https://chat.example.com/v1/chat/completions');
+
+    const chatPayload = JSON.parse(fetchStub.calls[0].options.body);
+    assert.match(chatPayload.messages[0].content, /没有检索到足够相关的公开文章片段/);
+    assert.deepEqual(db.calls.at(-1).values.slice(1), ['success', 32, 18, 0, null]);
+  });
+});
+
+test('POST /echo-chat records a safe code when provider fetch rejects', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const fetchStub = createFetchStub({
+    embeddingHandler() {
+      throw new Error('network failure for 我最近有点迷茫');
+    }
+  });
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '我最近有点迷茫' })
+    }), {
+      VISITOR_DB: db,
+      ECHO_VECTORIZE: createVectorize(),
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+    });
+
+    assert.equal(response.status, 502);
+    assert.equal(db.calls.at(-1).values.at(-1), 'ECHO_PROVIDER_NETWORK_ERROR');
+    assert.ok(!db.calls.at(-1).values.some(value => String(value).includes('我最近有点迷茫')));
+  });
+});
+
+test('OPTIONS /admin-echo does not expose public CORS headers', async () => {
+  const response = await worker.fetch(new Request('https://visitor.example.com/admin-echo', {
+    method: 'OPTIONS',
+    headers: { origin: 'https://lovezvv.com' }
+  }), {
+    VISITOR_DB: createEchoDb(),
+    ADMIN_PASSWORD: 'secret-pass'
+  });
+
+  assert.notEqual(response.status, 204);
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
 });

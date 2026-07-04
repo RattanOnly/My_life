@@ -11,9 +11,37 @@ const MAX_ECHO_MESSAGE_LENGTH = 1000;
 const MAX_ECHO_HISTORY_ITEMS = 6;
 const MAX_ECHO_HISTORY_TEXT_LENGTH = 500;
 const DEFAULT_CHAT_MODEL = 'gpt-5.4-mini';
+const SAFE_ECHO_ERROR_CODES = new Set([
+  'ECHO_CHAT_PROVIDER_HTTP_ERROR',
+  'ECHO_CHAT_PROVIDER_INVALID_RESPONSE',
+  'ECHO_CHAT_PROVIDER_MISSING',
+  'ECHO_EMBEDDING_PROVIDER_HTTP_ERROR',
+  'ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE',
+  'ECHO_EMBEDDING_PROVIDER_MISSING',
+  'ECHO_PROVIDER_BASE_URL_INVALID',
+  'ECHO_PROVIDER_NETWORK_ERROR',
+  'ECHO_REPLY_EMPTY'
+]);
 
-function trimBaseUrl(value) {
-  return String(value || '').replace(/\/+$/, '');
+function buildProviderUrl(baseUrl, path) {
+  let url;
+  try {
+    url = new URL(String(baseUrl || ''));
+  } catch {
+    throw new Error('ECHO_PROVIDER_BASE_URL_INVALID');
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('ECHO_PROVIDER_BASE_URL_INVALID');
+  }
+
+  const basePath = url.pathname.replace(/\/+$/, '');
+  const versionedBasePath = basePath.endsWith('/v1') ? basePath : `${basePath}/v1`;
+  url.pathname = `${versionedBasePath}/${String(path).replace(/^\/+/, '')}`.replace(/\/{2,}/g, '/');
+  url.search = '';
+  url.hash = '';
+
+  return url.toString();
 }
 
 function readHistory(value) {
@@ -61,22 +89,45 @@ async function callChatProvider({ message, history, fragments, env }) {
     { role: 'user', content: message }
   ];
 
-  const response = await fetch(`${trimBaseUrl(env.ECHO_CHAT_BASE_URL)}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${env.ECHO_CHAT_API_KEY}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: env.ECHO_CHAT_MODEL || DEFAULT_CHAT_MODEL,
-      messages,
-      temperature: 0.8
-    })
-  });
+  let response;
+  try {
+    response = await fetch(buildProviderUrl(env.ECHO_CHAT_BASE_URL, 'chat/completions'), {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.ECHO_CHAT_API_KEY}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: env.ECHO_CHAT_MODEL || DEFAULT_CHAT_MODEL,
+        messages,
+        temperature: 0.8
+      })
+    });
+  } catch (error) {
+    if (error?.message === 'ECHO_PROVIDER_BASE_URL_INVALID') {
+      throw error;
+    }
 
-  const body = await response.json().catch(() => ({}));
+    throw new Error('ECHO_PROVIDER_NETWORK_ERROR');
+  }
+
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    if (!response.ok) {
+      throw new Error('ECHO_CHAT_PROVIDER_HTTP_ERROR');
+    }
+
+    throw new Error('ECHO_CHAT_PROVIDER_INVALID_RESPONSE');
+  }
+
   if (!response.ok) {
-    throw new Error(body.error?.message || 'ECHO_CHAT_FAILED');
+    throw new Error('ECHO_CHAT_PROVIDER_HTTP_ERROR');
+  }
+
+  if (!body || typeof body !== 'object') {
+    throw new Error('ECHO_CHAT_PROVIDER_INVALID_RESPONSE');
   }
 
   const reply = cleanText(body.choices?.[0]?.message?.content, 3000);
@@ -89,6 +140,20 @@ async function callChatProvider({ message, history, fragments, env }) {
     promptTokens: Number(body.usage?.prompt_tokens || 0),
     completionTokens: Number(body.usage?.completion_tokens || 0)
   };
+}
+
+async function safeRecordEchoUsage(db, payload) {
+  try {
+    await recordEchoUsage(db, payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeEchoErrorCode(error) {
+  const code = error?.message;
+  return SAFE_ECHO_ERROR_CODES.has(code) ? code : 'ECHO_UNKNOWN_ERROR';
 }
 
 export async function handleEchoChat(request, env, requireVisitorDb) {
@@ -114,7 +179,7 @@ export async function handleEchoChat(request, env, requireVisitorDb) {
     retrievedCount = fragments.length;
     const result = await callChatProvider({ message, history, fragments, env });
 
-    await recordEchoUsage(db, {
+    await safeRecordEchoUsage(db, {
       status: 'success',
       promptTokens: result.promptTokens + embeddingTokens,
       completionTokens: result.completionTokens,
@@ -131,10 +196,10 @@ export async function handleEchoChat(request, env, requireVisitorDb) {
         .filter(reference => reference.title && reference.path)
     });
   } catch (error) {
-    await recordEchoUsage(db, {
+    await safeRecordEchoUsage(db, {
       status: 'failure',
       retrievedCount,
-      errorCode: error?.message || 'ECHO_UNKNOWN_ERROR'
+      errorCode: safeEchoErrorCode(error)
     });
 
     return json({
