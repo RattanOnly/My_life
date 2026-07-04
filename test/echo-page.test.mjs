@@ -23,6 +23,7 @@ class FakeElement {
   }
 
   append(child) {
+    child.parentNode = this;
     this.children.push(child);
   }
 
@@ -39,6 +40,13 @@ class FakeElement {
 
   focus() {
     this.focused = true;
+  }
+
+  remove() {
+    if (!this.parentNode) return;
+    const index = this.parentNode.children.indexOf(this);
+    if (index >= 0) this.parentNode.children.splice(index, 1);
+    this.parentNode = null;
   }
 
   querySelector(selector) {
@@ -67,7 +75,7 @@ const settleAsyncWork = async () => {
   }
 };
 
-const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponses = [] } = {}) => {
+const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponses = [], location } = {}) => {
   const root = new FakeElement('root');
   const form = new FakeElement('form');
   const messages = new FakeElement('messages');
@@ -75,10 +83,23 @@ const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponse
   const textarea = new FakeElement('textarea');
   const button = new FakeElement('button');
   const calls = [];
+  const characterCalls = [];
+  const characterAdapter = {
+    ready: Promise.resolve(true),
+    playEntrance() {
+      characterCalls.push({ type: 'playEntrance' });
+    },
+    setState(stage) {
+      characterCalls.push({ type: 'setState', stage });
+    },
+    destroy() {
+      characterCalls.push({ type: 'destroy' });
+    }
+  };
 
   root.dataset.echoChatEndpoint = '/unit-chat';
   root.dataset.echoStatusEndpoint = '/unit-status';
-  root.dataset.echoStage = 'idle_sit';
+  root.dataset.echoStage = 'idle';
   root.selectorMap.set('[data-echo-form]', form);
   root.selectorMap.set('[data-echo-messages]', messages);
   root.selectorMap.set('[data-echo-status]', status);
@@ -89,13 +110,14 @@ const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponse
   const chatQueue = [...chatResponses];
   const fetch = async (url, options = {}) => {
     calls.push({ url, options });
+    const route = String(url).replace('http://localhost:8787', '');
 
-    if (url === '/unit-status') {
-      return createResponse(statusQueue.shift() || { enabled: true });
+    if (route === '/unit-status') {
+      return createResponse(await (statusQueue.length ? statusQueue.shift() : { enabled: true }));
     }
 
-    if (url === '/unit-chat') {
-      return createResponse(chatQueue.shift() || { reply: '默认回声' });
+    if (route === '/unit-chat') {
+      return createResponse(await (chatQueue.length ? chatQueue.shift() : { reply: '默认回声' }));
     }
 
     return createResponse({ ok: false, status: 404, body: {} });
@@ -106,12 +128,20 @@ const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponse
       createElement: tagName => new FakeElement(tagName),
       getElementById: id => (id === 'echo-page' ? root : null)
     },
-    fetch
+    EchoCharacter: {
+      create(targetRoot) {
+        characterCalls.push({ type: 'create', root: targetRoot });
+        return characterAdapter;
+      }
+    },
+    fetch,
+    location
   });
 
   return {
     button,
     calls,
+    characterCalls,
     context,
     form,
     messages,
@@ -164,6 +194,8 @@ test('Echo styles define hand-drawn layout and reduced motion behavior', async (
   assert.match(styles, /\.echo-page/);
   assert.match(styles, /\.echo-boy/);
   assert.match(styles, /\.echo-belt/);
+  assert.match(styles, /\.echo-message-thinking/);
+  assert.match(styles, /@keyframes echo-thinking-breathe/);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
   assert.match(styles, /animation:\s*none/);
 });
@@ -183,10 +215,14 @@ test('Echo frontend posts only active page-session messages and handles disabled
   assert.match(script, /statusEndpoint/);
   assert.match(script, /fetch\(chatEndpoint/);
   assert.match(script, /history\.slice\(-6\)/);
-  assert.match(script, /Echo 正在想一想。/);
+  assert.match(script, /我在想一想\.\.\./);
+  assert.match(script, /appendMessage\('assistant', '我在想一想\.\.\.', 'thinking'\)/);
   assert.match(script, /这阵回声暂时坐下来休息了/);
   assert.match(script, /setStage\('thinking'\)/);
   assert.match(script, /setStage\('reply_ready'\)/);
+  assert.match(script, /'listening'/);
+  assert.match(script, /setStage\('idle'\)/);
+  assert.doesNotMatch(script, /idle_sit|walk/);
   assert.match(script, /credentials:\s*'omit'/);
   assert.doesNotMatch(script, /localStorage|sessionStorage|indexedDB/);
 });
@@ -199,6 +235,25 @@ test('Echo frontend loads public status without credentials', async () => {
   assert.equal(runtime.calls[0].url, '/unit-status');
   assert.equal(runtime.calls[0].options.credentials, 'omit');
   assert.equal(runtime.calls[0].options.cache, 'no-store');
+  assert.equal(runtime.characterCalls[0].type, 'create');
+  assert.equal(runtime.characterCalls[0].root, runtime.root);
+  assert.deepEqual(runtime.characterCalls.slice(1, 3), [
+    { type: 'playEntrance' },
+    { type: 'setState', stage: 'idle' }
+  ]);
+});
+
+test('Echo frontend points localhost static preview to the local Worker', async () => {
+  const runtime = createEchoRuntime({
+    location: {
+      hostname: 'localhost',
+      port: '4000'
+    }
+  });
+
+  await runEchoScript(runtime);
+
+  assert.equal(runtime.calls[0].url, 'http://localhost:8787/unit-status');
 });
 
 test('Echo frontend disables input when public status is disabled', async () => {
@@ -214,6 +269,31 @@ test('Echo frontend disables input when public status is disabled', async () => 
   assert.match(runtime.status.textContent, /这阵回声暂时坐下来休息了/);
 });
 
+test('Echo frontend maps input focus and blur to idle or listening states', async () => {
+  const runtime = createEchoRuntime();
+
+  await runEchoScript(runtime);
+
+  runtime.textarea.value = '';
+  runtime.textarea.dispatch('focus');
+  assert.equal(runtime.root.dataset.echoStage, 'idle');
+
+  runtime.textarea.value = '有话要说';
+  runtime.textarea.dispatch('focus');
+  assert.equal(runtime.root.dataset.echoStage, 'listening');
+
+  runtime.textarea.dispatch('blur');
+  assert.equal(runtime.root.dataset.echoStage, 'listening');
+
+  runtime.textarea.value = '';
+  runtime.textarea.dispatch('blur');
+  assert.equal(runtime.root.dataset.echoStage, 'idle');
+  assert.deepEqual(
+    runtime.characterCalls.filter(call => call.type === 'setState').map(call => call.stage),
+    ['idle', 'idle', 'listening', 'idle']
+  );
+});
+
 test('Echo frontend submits messages with previous page-session history only', async () => {
   const runtime = createEchoRuntime({
     chatResponses: [{ reply: '第一轮回答' }, { reply: '第二轮回答' }]
@@ -223,7 +303,7 @@ test('Echo frontend submits messages with previous page-session history only', a
 
   runtime.textarea.value = '第一句';
   runtime.textarea.dispatch('input');
-  assert.equal(runtime.root.dataset.echoStage, 'walk');
+  assert.equal(runtime.root.dataset.echoStage, 'listening');
   runtime.form.dispatch('submit');
   await settleAsyncWork();
 
@@ -260,6 +340,43 @@ test('Echo frontend submits messages with previous page-session history only', a
   assert.equal(runtime.messages.children.length, 4);
   assert.equal(runtime.messages.children[3].textContent, '第二轮回答');
   assert.equal(runtime.root.dataset.echoStage, 'reply_ready');
+  assert.deepEqual(
+    runtime.characterCalls.filter(call => call.type === 'setState').map(call => call.stage),
+    ['idle', 'listening', 'thinking', 'reply_ready', 'listening', 'thinking', 'reply_ready']
+  );
+});
+
+test('Echo frontend shows a transient thinking bubble while waiting for a reply', async () => {
+  let resolveReply;
+  const replyPromise = new Promise(resolve => {
+    resolveReply = resolve;
+  });
+  const runtime = createEchoRuntime({
+    chatResponses: [replyPromise]
+  });
+
+  await runEchoScript(runtime);
+
+  runtime.textarea.value = '你还在吗';
+  runtime.form.dispatch('submit');
+  await settleAsyncWork();
+
+  assert.equal(runtime.root.dataset.echoStage, 'thinking');
+  assert.equal(runtime.textarea.disabled, true);
+  assert.equal(runtime.button.disabled, true);
+  assert.equal(runtime.status.textContent, '');
+  assert.equal(runtime.messages.children.length, 2);
+  assert.equal(runtime.messages.children[0].className, 'echo-message echo-message-user');
+  assert.equal(runtime.messages.children[1].className, 'echo-message echo-message-assistant echo-message-thinking');
+  assert.equal(runtime.messages.children[1].textContent, '我在想一想...');
+
+  resolveReply({ reply: '我在。' });
+  await settleAsyncWork();
+
+  assert.equal(runtime.messages.children.length, 2);
+  assert.equal(runtime.messages.children[1].className, 'echo-message echo-message-assistant');
+  assert.equal(runtime.messages.children[1].textContent, '我在。');
+  assert.equal(runtime.root.dataset.echoStage, 'reply_ready');
 });
 
 test('Echo frontend recovers from 502 but keeps 503 disabled', async () => {
@@ -272,9 +389,11 @@ test('Echo frontend recovers from 502 but keeps 503 disabled', async () => {
   ordinaryFailure.form.dispatch('submit');
   await settleAsyncWork();
 
-  assert.equal(ordinaryFailure.root.dataset.echoStage, 'idle_sit');
+  assert.equal(ordinaryFailure.root.dataset.echoStage, 'idle');
   assert.equal(ordinaryFailure.textarea.disabled, false);
   assert.equal(ordinaryFailure.button.disabled, false);
+  assert.equal(ordinaryFailure.messages.children.length, 1);
+  assert.equal(ordinaryFailure.messages.children[0].className, 'echo-message echo-message-user');
   assert.match(ordinaryFailure.status.textContent, /这阵回声刚刚有点走神。可以再试一次。/);
 
   const disabledFailure = createEchoRuntime({
@@ -289,6 +408,8 @@ test('Echo frontend recovers from 502 but keeps 503 disabled', async () => {
   assert.equal(disabledFailure.root.dataset.echoStage, 'disabled');
   assert.equal(disabledFailure.textarea.disabled, true);
   assert.equal(disabledFailure.button.disabled, true);
+  assert.equal(disabledFailure.messages.children.length, 1);
+  assert.equal(disabledFailure.messages.children[0].className, 'echo-message echo-message-user');
   assert.match(disabledFailure.status.textContent, /这阵回声暂时坐下来休息了/);
 });
 

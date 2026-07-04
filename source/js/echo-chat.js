@@ -8,13 +8,35 @@
   const status = root.querySelector('[data-echo-status]');
   const messageField = form ? form.querySelector('[name="message"]') : null;
   const submitButton = form ? form.querySelector('button[type="submit"]') : null;
-  const chatEndpoint = root.dataset.echoChatEndpoint || '/echo-chat';
-  const statusEndpoint = root.dataset.echoStatusEndpoint || '/echo-status';
+  const resolveEndpoint = (endpoint, fallback) => {
+    const selectedEndpoint = endpoint || fallback;
+    const pageLocation = typeof location === 'object' ? location : null;
+    const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+    const shouldUseLocalWorker =
+      pageLocation &&
+      localHosts.has(pageLocation.hostname) &&
+      pageLocation.port === '4000' &&
+      selectedEndpoint.startsWith('/');
+
+    return shouldUseLocalWorker ? `http://localhost:8787${selectedEndpoint}` : selectedEndpoint;
+  };
+  const chatEndpoint = resolveEndpoint(root.dataset.echoChatEndpoint, '/echo-chat');
+  const statusEndpoint = resolveEndpoint(root.dataset.echoStatusEndpoint, '/echo-status');
   const disabledMessage = '这阵回声暂时坐下来休息了。晚一点再来找他吧。';
   const history = [];
+  const character =
+    globalThis.EchoCharacter && typeof globalThis.EchoCharacter.create === 'function'
+      ? globalThis.EchoCharacter.create(root)
+      : {
+          ready: Promise.resolve(false),
+          playEntrance() {},
+          setState() {},
+          destroy() {}
+        };
 
   const setStage = stage => {
     root.dataset.echoStage = stage;
+    character.setState(stage);
   };
 
   const setStatus = message => {
@@ -26,12 +48,19 @@
     if (submitButton) submitButton.disabled = disabled;
   };
 
-  const appendMessage = (role, text) => {
-    if (!messages) return;
+  const appendMessage = (role, text, modifier) => {
+    if (!messages) return null;
     const item = document.createElement('article');
-    item.className = `echo-message echo-message-${role}`;
+    item.className = modifier
+      ? `echo-message echo-message-${role} echo-message-${modifier}`
+      : `echo-message echo-message-${role}`;
     item.textContent = text;
     messages.append(item);
+    return item;
+  };
+
+  const removeMessage = item => {
+    if (item && typeof item.remove === 'function') item.remove();
   };
 
   const rememberMessage = (role, content) => {
@@ -67,22 +96,30 @@
     messageField.value = '';
     setDisabled(true);
     setStage('thinking');
-    setStatus('Echo 正在想一想。');
+    setStatus('');
+    const thinkingMessage = appendMessage('assistant', '我在想一想...', 'thinking');
 
-    const response = await fetch(chatEndpoint, {
-      method: 'POST',
-      credentials: 'omit',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        message: text,
-        history: previousHistory
-      })
-    });
+    let response;
+    try {
+      response = await fetch(chatEndpoint, {
+        method: 'POST',
+        credentials: 'omit',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: previousHistory
+        })
+      });
+    } catch (error) {
+      removeMessage(thinkingMessage);
+      throw error;
+    }
 
     const body = await response.json().catch(() => ({}));
+    removeMessage(thinkingMessage);
     if (!response.ok) {
       const isDisabled = response.status === 503;
-      setStage(isDisabled ? 'disabled' : 'idle_sit');
+      setStage(isDisabled ? 'disabled' : 'idle');
       setStatus(body.message || (isDisabled ? disabledMessage : '这阵回声刚刚有点走神。可以再试一次。'));
       setDisabled(isDisabled);
       return;
@@ -90,27 +127,36 @@
 
     appendMessage('assistant', body.reply || '');
     rememberMessage('assistant', body.reply || '');
-    setStage('reply_ready');
     setStatus('');
     setDisabled(false);
     if (messageField) messageField.focus();
+    setStage('reply_ready');
   };
 
   if (messageField) {
-    messageField.addEventListener('input', () => {
-      setStage(messageField.value.trim() ? 'walk' : 'idle_sit');
+    const syncInputStage = () => {
+      setStage(messageField.value.trim() ? 'listening' : 'idle');
+    };
+
+    messageField.addEventListener('input', syncInputStage);
+    messageField.addEventListener('focus', syncInputStage);
+    messageField.addEventListener('blur', () => {
+      if (!messageField.value.trim()) setStage('idle');
     });
   }
 
   if (form) {
     form.addEventListener('submit', event => {
       submitMessage(event).catch(() => {
-        setStage('idle_sit');
+        setStage('idle');
         setDisabled(false);
         setStatus('这阵回声刚刚有点走神。可以再试一次。');
       });
     });
   }
+
+  character.playEntrance();
+  setStage('idle');
 
   loadStatus().catch(() => {
     setStatus('');
