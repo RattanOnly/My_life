@@ -20,9 +20,11 @@ wrangler vectorize create my-life-echo-large --dimensions=3072 --metric=cosine
 
 Keep `worker/wrangler.toml` aligned with the production Cloudflare resources before deploying the Worker sidecar.
 
+The default embedding setup is `text-embedding-3-large` with `ECHO_EMBEDDING_DIMENSIONS=3072`. If you switch to `text-embedding-3-small` or another embedding model, keep all three dimensions aligned: `ECHO_EMBEDDING_DIMENSIONS`, the Cloudflare Vectorize index dimensions, and the vector length returned by the provider. The indexer validates the provider output before upsert and fails before writing to Vectorize when the dimensions do not match.
+
 ## Worker Secrets And Environment Variables
 
-The Worker reads OpenAI-compatible chat and embedding provider settings from secrets or environment variables:
+The Worker runtime needs chat, embedding, and admin authentication secrets or environment variables:
 
 - `ECHO_CHAT_API_KEY`
 - `ECHO_CHAT_BASE_URL`
@@ -30,24 +32,34 @@ The Worker reads OpenAI-compatible chat and embedding provider settings from sec
 - `ECHO_EMBEDDING_API_KEY`
 - `ECHO_EMBEDDING_BASE_URL`
 - `ECHO_EMBEDDING_MODEL`
+- `ECHO_EMBEDDING_DIMENSIONS`
+- `ADMIN_PASSWORD`
 
-Do not commit secret values. Store real provider keys in Cloudflare Worker secrets or production deployment configuration only.
+Do not commit secret values. Store real provider keys and `ADMIN_PASSWORD` in Cloudflare Worker secrets or production deployment configuration only.
 
 ## Cloudflare Pages Build Variables
 
-Cloudflare Pages builds can refresh the remote Vectorize index when these variables are present:
+Cloudflare Pages builds can refresh the remote Vectorize index after the static build. That indexing job is separate from the Worker runtime and needs both Cloudflare write access and the embedding provider configuration:
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 - `ECHO_VECTORIZE_INDEX`
+- `ECHO_EMBEDDING_API_KEY`
+- `ECHO_EMBEDDING_BASE_URL`
+- `ECHO_EMBEDDING_MODEL`
+- `ECHO_EMBEDDING_DIMENSIONS`
 
-`CLOUDFLARE_API_TOKEN` must be scoped narrowly enough for the build job, but it must be able to update the Cloudflare Vectorize index. Local builds and Pages builds without these variables skip the remote Vectorize rebuild.
+`ECHO_EMBEDDING_DIMENSIONS` should stay `3072` for the default `text-embedding-3-large` setup. Setting only the Cloudflare account, token, and index name is not enough for remote indexing because the Pages job must also call the embedding provider before it can upsert vectors.
+
+`CLOUDFLARE_API_TOKEN` must be scoped narrowly enough for the build job, but it must be able to update the Cloudflare Vectorize index. Local builds and Pages builds without the complete indexing variable set skip the remote Vectorize rebuild.
 
 Production-scoped environment variables are safer. Preview builds that receive the same variables can mutate the shared `my-life-echo-large` index, so avoid exposing the production indexing token to preview contexts unless that is intentional.
 
 ## Index Refresh
 
 Published posts and `source/_data/echo-tone-summary.md` are the source material for Echo retrieval. Drafts and unpublished content should not be indexed.
+
+The indexer uses the Node global `fetch`, `FormData`, and `Blob`. Use Node 18 or newer; Node 20 or Node 22 is preferred on Cloudflare Pages.
 
 Refresh the Echo retrieval index with:
 
@@ -79,7 +91,11 @@ Conversation content must not be written to D1, logs, analytics, or browser stor
 
 ## Owner Controls
 
-The admin page can pause or resume Echo. When Echo is paused, `/echo/` remains visible, but visitors see a warm unavailable message instead of sending a chat request to the provider.
+Protect the owner controls with the Worker `ADMIN_PASSWORD` secret. The admin UI is backed by `/admin-echo` for status changes and `/admin-echo-usage` for operational usage data.
+
+The admin page can pause or resume Echo. When Echo is paused, `/echo/` remains visible, but visitors see a warm unavailable message instead of sending a chat request to the provider. `/echo-chat` should return the paused state without calling the chat or embedding provider.
+
+Minimum verification after deployment: log in to the admin UI, confirm pause and resume both work, pause Echo, then verify visitors on `/echo/` see the unavailable state and `/echo-chat` does not call the provider.
 
 Use the admin controls for temporary provider outages, unexpected cost spikes, abuse monitoring, or maintenance windows.
 
