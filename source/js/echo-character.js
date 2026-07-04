@@ -164,6 +164,7 @@
           riveInstance.cleanup();
         }
         riveInstance = null;
+        inputs = {};
       }
 
       function applyState(state) {
@@ -242,8 +243,8 @@
               if (settled) {
                 return;
               }
+              cleanupRive();
               if (destroyed) {
-                cleanupRive();
                 finish(false);
                 return;
               }
@@ -262,20 +263,24 @@
                 finish(false);
                 return;
               }
-              inputs = createInputSet(
-                typeof riveInstance.stateMachineInputs === 'function'
-                  ? riveInstance.stateMachineInputs(STATE_MACHINE) || []
-                  : []
-              );
-              if (inputs.reducedMotion) {
-                inputs.reducedMotion.value = false;
+              try {
+                inputs = createInputSet(
+                  typeof riveInstance.stateMachineInputs === 'function'
+                    ? riveInstance.stateMachineInputs(STATE_MACHINE) || []
+                    : []
+                );
+                if (inputs.reducedMotion) {
+                  inputs.reducedMotion.value = false;
+                }
+                if (typeof riveInstance.resizeDrawingSurfaceToCanvas === 'function') {
+                  riveInstance.resizeDrawingSurfaceToCanvas();
+                }
+                applyState(currentState);
+                setReady(shell, 'rive');
+                finish(true);
+              } catch (error) {
+                completeFallback(error);
               }
-              if (typeof riveInstance.resizeDrawingSurfaceToCanvas === 'function') {
-                riveInstance.resizeDrawingSurfaceToCanvas();
-              }
-              applyState(currentState);
-              setReady(shell, 'rive');
-              finish(true);
             }
 
             try {

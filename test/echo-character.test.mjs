@@ -165,9 +165,14 @@ test('maps semantic states to fake Rive state machine inputs', async () => {
 
 test('falls back when the Rive instance reports onLoadError', async () => {
   let riveOptions = null;
+  let cleanupCalls = 0;
   class FakeRive {
     constructor(options) {
       riveOptions = options;
+    }
+
+    cleanup() {
+      cleanupCalls += 1;
     }
   }
 
@@ -190,6 +195,42 @@ test('falls back when the Rive instance reports onLoadError', async () => {
   assert.equal(shell.dataset.echoCharacterReady, 'fallback');
   assert.equal(shell.dataset.echoCharacterState, 'thinking');
   assert.equal(fallback.dataset.echoCharacterState, 'thinking');
+  assert.equal(cleanupCalls, 1);
+});
+
+test('falls back and cleans up when Rive onLoad setup throws', async () => {
+  let riveOptions = null;
+  let cleanupCalls = 0;
+  class FakeRive {
+    constructor(options) {
+      riveOptions = options;
+    }
+
+    stateMachineInputs() {
+      throw new Error('state machine unavailable');
+    }
+
+    cleanup() {
+      cleanupCalls += 1;
+    }
+  }
+
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: async () => ({
+      Rive: FakeRive,
+      RuntimeLoader: { setWasmUrl() {}, setWasmFallbackUrl() {} }
+    })
+  }).create(root);
+
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(riveOptions);
+
+  assert.doesNotThrow(() => riveOptions.onLoad());
+  assert.equal(await adapter.ready, false);
+  assert.equal(shell.dataset.echoCharacterReady, 'fallback');
+  assert.equal(cleanupCalls, 1);
 });
 
 test('does not bind unnamed or wrong-name Rive inputs by position', async () => {
@@ -379,6 +420,7 @@ test('default script loader retries after a script load failure', async () => {
   assert.equal(scripts.length, 1);
   scripts[0].onerror();
   await assert.rejects(firstLoad, /Failed to load Rive runtime/);
+  assert.equal(scripts[0].removed, true);
 
   const rive = { Rive: class {}, RuntimeLoader: {}, Layout: class {}, Fit: {}, Alignment: {} };
   const secondLoad = loader.loadRive();
