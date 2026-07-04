@@ -24,19 +24,45 @@
   const statusEndpoint = resolveEndpoint(root.dataset.echoStatusEndpoint, '/echo-status');
   const disabledMessage = '这阵回声暂时坐下来休息了。晚一点再来找他吧。';
   const history = [];
-  const character =
-    globalThis.EchoCharacter && typeof globalThis.EchoCharacter.create === 'function'
-      ? globalThis.EchoCharacter.create(root)
-      : {
-          ready: Promise.resolve(false),
-          playEntrance() {},
-          setState() {},
-          destroy() {}
-        };
+  const createNoopCharacter = () => ({
+    ready: Promise.resolve(false),
+    playEntrance() {},
+    setState() {},
+    destroy() {}
+  });
+  const isCharacterAdapter = adapter =>
+    adapter &&
+    typeof adapter.playEntrance === 'function' &&
+    typeof adapter.setState === 'function' &&
+    typeof adapter.destroy === 'function';
+  const createCharacterAdapter = () => {
+    if (!globalThis.EchoCharacter || typeof globalThis.EchoCharacter.create !== 'function') {
+      return createNoopCharacter();
+    }
+
+    try {
+      const adapter = globalThis.EchoCharacter.create(root);
+      return isCharacterAdapter(adapter) ? adapter : createNoopCharacter();
+    } catch (error) {
+      return createNoopCharacter();
+    }
+  };
+  const callCharacter = (adapter, method, ...args) => {
+    try {
+      const action = adapter && adapter[method];
+      if (typeof action !== 'function') return undefined;
+      const result = action.apply(adapter, args);
+      if (result && typeof result.catch === 'function') result.catch(() => {});
+      return result;
+    } catch (error) {
+      return undefined;
+    }
+  };
+  const character = createCharacterAdapter();
 
   const setStage = stage => {
     root.dataset.echoStage = stage;
-    character.setState(stage);
+    callCharacter(character, 'setState', stage);
   };
 
   const setStatus = message => {
@@ -128,14 +154,19 @@
     appendMessage('assistant', body.reply || '');
     rememberMessage('assistant', body.reply || '');
     setStatus('');
+    setStage('reply_ready');
     setDisabled(false);
     if (messageField) messageField.focus();
-    setStage('reply_ready');
   };
 
   if (messageField) {
     const syncInputStage = () => {
-      setStage(messageField.value.trim() ? 'listening' : 'idle');
+      if (messageField.value.trim()) {
+        setStage('listening');
+        return;
+      }
+
+      if (root.dataset.echoStage !== 'reply_ready') setStage('idle');
     };
 
     messageField.addEventListener('input', syncInputStage);
@@ -155,7 +186,7 @@
     });
   }
 
-  character.playEntrance();
+  callCharacter(character, 'playEntrance');
   setStage('idle');
 
   loadStatus().catch(() => {

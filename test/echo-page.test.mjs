@@ -40,6 +40,7 @@ class FakeElement {
 
   focus() {
     this.focused = true;
+    this.dispatch('focus');
   }
 
   remove() {
@@ -75,7 +76,12 @@ const settleAsyncWork = async () => {
   }
 };
 
-const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponses = [], location } = {}) => {
+const createEchoRuntime = ({
+  statusResponses = [{ enabled: true }],
+  chatResponses = [],
+  location,
+  characterFactory
+} = {}) => {
   const root = new FakeElement('root');
   const form = new FakeElement('form');
   const messages = new FakeElement('messages');
@@ -123,6 +129,12 @@ const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponse
     return createResponse({ ok: false, status: 404, body: {} });
   };
 
+  const createCharacter =
+    characterFactory ||
+    (targetRoot => {
+      characterCalls.push({ type: 'create', root: targetRoot });
+      return characterAdapter;
+    });
   const context = createContext({
     document: {
       createElement: tagName => new FakeElement(tagName),
@@ -130,8 +142,7 @@ const createEchoRuntime = ({ statusResponses = [{ enabled: true }], chatResponse
     },
     EchoCharacter: {
       create(targetRoot) {
-        characterCalls.push({ type: 'create', root: targetRoot });
-        return characterAdapter;
+        return createCharacter(targetRoot);
       }
     },
     fetch,
@@ -180,6 +191,88 @@ test('Echo page renders a standalone AI conversation shell', async () => {
   assert.match(page, /\/js\/echo-character\.js/);
   assert.match(page, /\/js\/echo-chat\.js/);
   assert.doesNotMatch(page, /class="echo-boy"/);
+});
+
+test('Echo frontend keeps initializing and loading status when character creation throws', async () => {
+  const runtime = createEchoRuntime({
+    statusResponses: [{ enabled: false }],
+    characterFactory() {
+      throw new Error('character unavailable');
+    }
+  });
+
+  await assert.doesNotReject(() => runEchoScript(runtime));
+
+  assert.equal(runtime.root.dataset.initialized, 'true');
+  assert.equal(runtime.calls[0].url, '/unit-status');
+  assert.equal(runtime.root.dataset.echoStage, 'disabled');
+  assert.equal(runtime.textarea.disabled, true);
+  assert.match(runtime.status.textContent, /这阵回声暂时坐下来休息了/);
+});
+
+test('Echo frontend falls back when character creation returns null or a bad adapter', async () => {
+  for (const characterResult of [null, { setState: 'not a function' }]) {
+    const runtime = createEchoRuntime({
+      chatResponses: [{ reply: '还在这里' }],
+      characterFactory() {
+        return characterResult;
+      }
+    });
+
+    await assert.doesNotReject(() => runEchoScript(runtime));
+
+    runtime.textarea.value = '能说话吗';
+    runtime.form.dispatch('submit');
+    await settleAsyncWork();
+
+    assert.equal(runtime.root.dataset.echoStage, 'reply_ready');
+    assert.equal(runtime.messages.children[1].textContent, '还在这里');
+    assert.equal(runtime.textarea.disabled, false);
+  }
+});
+
+test('Echo frontend isolates character play and state failures from chat behavior', async () => {
+  const entranceFailure = createEchoRuntime({
+    statusResponses: [{ enabled: false }],
+    characterFactory() {
+      return {
+        ready: Promise.resolve(false),
+        playEntrance() {
+          throw new Error('entrance failed');
+        },
+        setState() {},
+        destroy() {}
+      };
+    }
+  });
+
+  await assert.doesNotReject(() => runEchoScript(entranceFailure));
+  assert.equal(entranceFailure.root.dataset.echoStage, 'disabled');
+  assert.equal(entranceFailure.textarea.disabled, true);
+
+  const stateFailure = createEchoRuntime({
+    chatResponses: [{ reply: '状态坏了也能回声' }],
+    characterFactory() {
+      return {
+        ready: Promise.resolve(true),
+        playEntrance() {},
+        setState() {
+          throw new Error('state failed');
+        },
+        destroy() {}
+      };
+    }
+  });
+
+  await assert.doesNotReject(() => runEchoScript(stateFailure));
+
+  stateFailure.textarea.value = '继续吗';
+  stateFailure.form.dispatch('submit');
+  await settleAsyncWork();
+
+  assert.equal(stateFailure.root.dataset.echoStage, 'reply_ready');
+  assert.equal(stateFailure.messages.children[1].textContent, '状态坏了也能回声');
+  assert.equal(stateFailure.textarea.disabled, false);
 });
 
 test('Echo is available from the main navigation', async () => {
@@ -344,6 +437,28 @@ test('Echo frontend submits messages with previous page-session history only', a
     runtime.characterCalls.filter(call => call.type === 'setState').map(call => call.stage),
     ['idle', 'listening', 'thinking', 'reply_ready', 'listening', 'thinking', 'reply_ready']
   );
+});
+
+test('Echo frontend does not insert idle character state when focusing after a successful reply', async () => {
+  const runtime = createEchoRuntime({
+    chatResponses: [{ reply: '第一轮回答' }]
+  });
+
+  await runEchoScript(runtime);
+
+  runtime.textarea.value = '第一句';
+  runtime.textarea.dispatch('input');
+  runtime.form.dispatch('submit');
+  await settleAsyncWork();
+
+  const states = runtime.characterCalls.filter(call => call.type === 'setState').map(call => call.stage);
+  assert.equal(runtime.root.dataset.echoStage, 'reply_ready');
+  assert.equal(runtime.textarea.focused, true);
+  assert.deepEqual(states, ['idle', 'listening', 'thinking', 'reply_ready']);
+
+  const statePath = states.join(' -> ');
+  assert.doesNotMatch(statePath, /thinking -> idle -> reply_ready/);
+  assert.doesNotMatch(statePath, /reply_ready -> idle/);
 });
 
 test('Echo frontend shows a transient thinking bubble while waiting for a reply', async () => {
