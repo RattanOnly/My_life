@@ -45,14 +45,26 @@
       return scriptLoadPromise;
     }
 
-    scriptLoadPromise = new Promise(function loadRiveScript(resolve, reject) {
+    var failedBeforeCache = false;
+    var pendingLoad = new Promise(function loadRiveScript(resolve, reject) {
       var doc = getDocument();
+      var script = null;
+
+      function fail(error) {
+        failedBeforeCache = true;
+        scriptLoadPromise = null;
+        if (script && typeof script.remove === 'function') {
+          script.remove();
+        }
+        reject(error);
+      }
+
       if (!doc || !doc.createElement) {
-        reject(new Error('Rive runtime requires a document'));
+        fail(new Error('Rive runtime requires a document'));
         return;
       }
 
-      var script = doc.createElement('script');
+      script = doc.createElement('script');
       script.src = RIVE_SCRIPT_SRC;
       script.async = true;
       script.onload = function onload() {
@@ -60,21 +72,22 @@
           resolve(win.rive);
           return;
         }
-        reject(new Error('Rive runtime did not expose window.rive'));
+        fail(new Error('Rive runtime did not expose window.rive'));
       };
       script.onerror = function onerror() {
-        reject(new Error('Failed to load Rive runtime'));
+        fail(new Error('Failed to load Rive runtime'));
       };
 
       var target = doc.head || doc.body || doc.documentElement;
       if (!target || !target.appendChild) {
-        reject(new Error('Rive runtime requires a document target'));
+        fail(new Error('Rive runtime requires a document target'));
         return;
       }
       target.appendChild(script);
     });
 
-    return scriptLoadPromise;
+    scriptLoadPromise = failedBeforeCache ? null : pendingLoad;
+    return pendingLoad;
   }
 
   function createNoopAdapter() {
@@ -111,14 +124,10 @@
   }
 
   function createInputSet(inputs) {
-    var triggers = inputs.filter(function isTrigger(input) {
-      return input && typeof input.fire === 'function';
-    });
-
     return {
-      mode: byInputName(inputs, 'mode') || inputs[0] || null,
-      enter: byInputName(inputs, 'enter') || triggers[0] || null,
-      attention: byInputName(inputs, 'attention') || triggers[1] || null,
+      mode: byInputName(inputs, 'mode'),
+      enter: byInputName(inputs, 'enter'),
+      attention: byInputName(inputs, 'attention'),
       reducedMotion: byInputName(inputs, 'reducedMotion') || null
     };
   }
@@ -139,14 +148,28 @@
       var riveInstance = null;
       var inputs = {};
       var currentState = 'idle';
+      var destroyed = false;
 
       function fallbackReady() {
+        if (destroyed) {
+          return false;
+        }
         setReady(shell, 'fallback');
         setShellState(shell, fallback, currentState);
         return false;
       }
 
+      function cleanupRive() {
+        if (riveInstance && typeof riveInstance.cleanup === 'function') {
+          riveInstance.cleanup();
+        }
+        riveInstance = null;
+      }
+
       function applyState(state) {
+        if (destroyed) {
+          return;
+        }
         var nextState = Object.prototype.hasOwnProperty.call(STATE_MODE, state) ? state : 'idle';
         currentState = nextState;
         setShellState(shell, fallback, nextState);
@@ -160,6 +183,9 @@
       }
 
       function playEntrance() {
+        if (destroyed) {
+          return;
+        }
         shell.dataset.echoCharacterEntered = 'true';
         if (!reduced && inputs.enter && typeof inputs.enter.fire === 'function') {
           inputs.enter.fire();
@@ -167,18 +193,22 @@
       }
 
       function destroy() {
-        if (riveInstance && typeof riveInstance.cleanup === 'function') {
-          riveInstance.cleanup();
-        }
-        riveInstance = null;
+        destroyed = true;
+        cleanupRive();
       }
 
       var ready = Promise.resolve().then(function initialize() {
+        if (destroyed) {
+          return false;
+        }
         if (reduced || !canvas) {
           return fallbackReady();
         }
 
         return loadRive().then(function onRuntime(runtime) {
+          if (destroyed) {
+            return false;
+          }
           var Rive = runtime && runtime.Rive;
           if (!Rive) {
             throw new Error('Rive runtime missing Rive constructor');
@@ -198,14 +228,40 @@
             alignment: runtime.Alignment && runtime.Alignment.Center
           }) : undefined;
           return new Promise(function createRiveInstance(resolve) {
+            var settled = false;
+
+            function finish(value) {
+              if (settled) {
+                return;
+              }
+              settled = true;
+              resolve(value);
+            }
+
             function completeFallback(error) {
+              if (settled) {
+                return;
+              }
+              if (destroyed) {
+                cleanupRive();
+                finish(false);
+                return;
+              }
               if (global.console && typeof global.console.warn === 'function') {
                 global.console.warn('Echo character Rive fallback:', error);
               }
-              resolve(fallbackReady());
+              finish(fallbackReady());
             }
 
             function completeLoad() {
+              if (settled) {
+                return;
+              }
+              if (destroyed) {
+                cleanupRive();
+                finish(false);
+                return;
+              }
               inputs = createInputSet(
                 typeof riveInstance.stateMachineInputs === 'function'
                   ? riveInstance.stateMachineInputs(STATE_MACHINE) || []
@@ -219,7 +275,7 @@
               }
               applyState(currentState);
               setReady(shell, 'rive');
-              resolve(true);
+              finish(true);
             }
 
             try {
@@ -237,6 +293,9 @@
             }
           });
         }).catch(function onError(error) {
+          if (destroyed) {
+            return false;
+          }
           if (global.console && typeof global.console.warn === 'function') {
             global.console.warn('Echo character Rive fallback:', error);
           }
