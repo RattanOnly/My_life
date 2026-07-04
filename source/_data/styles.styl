@@ -545,98 +545,55 @@ body.has-background-video {
   min-height: 138px;
 }
 
-.echo-boy {
-  --echo-boy-scale: 1;
+.echo-character {
   position: absolute;
   left: 42px;
   bottom: 8px;
-  width: 76px;
-  height: 112px;
-  transform: scale(var(--echo-boy-scale));
+  width: min(24vw, 124px);
+  aspect-ratio: 1 / 1.32;
   transform-origin: 50% 100%;
-  transition: transform .28s ease;
+  transition: transform .28s ease, filter .28s ease, opacity .28s ease;
 }
 
-.echo-boy-head,
-.echo-boy-body,
-.echo-boy-pack,
-.echo-boy-leg,
-.echo-boy-shadow {
-  position: absolute;
-}
-
-.echo-boy-head {
-  top: 4px;
-  left: 23px;
-  width: 32px;
-  height: 30px;
-  border: 2px solid rgba(48, 40, 32, .86);
-  border-radius: 50%;
-  background: #f0cda8;
-}
-
-.echo-boy-head::before,
-.echo-boy-head::after {
+.echo-character::after {
   content: "";
   position: absolute;
-  top: 14px;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #302820;
-}
-
-.echo-boy-head::before {
-  left: 9px;
-}
-
-.echo-boy-head::after {
-  right: 9px;
-}
-
-.echo-boy-body {
-  top: 38px;
-  left: 22px;
-  width: 34px;
-  height: 42px;
-  border: 2px solid rgba(48, 40, 32, .86);
-  border-radius: 12px 12px 8px 8px;
-  background: #d7dfc8;
-}
-
-.echo-boy-pack {
-  top: 43px;
-  left: 10px;
-  width: 18px;
-  height: 34px;
-  border-radius: 12px;
-  background: #7a644f;
-}
-
-.echo-boy-leg {
-  top: 77px;
-  width: 7px;
-  height: 28px;
-  border-radius: 999px;
-  background: #514238;
-}
-
-.echo-boy-leg-left {
-  left: 28px;
-}
-
-.echo-boy-leg-right {
-  left: 45px;
-}
-
-.echo-boy-shadow {
-  left: 16px;
-  right: 14px;
-  bottom: 0;
-  height: 10px;
+  left: 14%;
+  right: 12%;
+  bottom: -2px;
+  height: 12px;
   border-radius: 50%;
   background: rgba(62, 49, 37, .14);
-  filter: blur(2px);
+  filter: blur(3px);
+}
+
+.echo-character-canvas,
+.echo-character-fallback {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.echo-character-canvas {
+  display: none;
+}
+
+.echo-character-fallback {
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(62, 49, 37, .16));
+  transform-origin: 50% 88%;
+  animation: echo-character-breathe 3.4s ease-in-out infinite;
+  transition: transform .28s ease, filter .28s ease, opacity .28s ease;
+}
+
+.echo-character[data-echo-character-ready='rive'] .echo-character-canvas {
+  display: block;
+}
+
+.echo-character[data-echo-character-ready='rive'] .echo-character-fallback {
+  display: none;
 }
 
 .echo-thought {
@@ -707,6 +664,13 @@ body.has-background-video {
   border: 1px solid rgba(55, 45, 35, .12);
 }
 
+.echo-message-thinking {
+  color: #7a6f64;
+  font-style: italic;
+  opacity: .86;
+  animation: echo-thinking-breathe 1.5s ease-in-out infinite;
+}
+
 .echo-form {
   display: grid;
   gap: 10px;
@@ -735,23 +699,46 @@ body.has-background-video {
   gap: 12px;
 }
 
-.echo-page[data-echo-stage='walk'] .echo-boy,
-.echo-page[data-echo-stage='thinking'] .echo-boy {
-  animation: echo-boy-walk 1.35s ease-in-out infinite;
+.echo-page[data-echo-stage='listening'] .echo-character-fallback {
+  transform: translateY(-2px) rotate(-1deg);
+}
+
+.echo-page[data-echo-stage='thinking'] .echo-character-fallback {
+  animation: echo-character-think 1.35s ease-in-out infinite;
+}
+
+.echo-page[data-echo-stage='reply_ready'] .echo-character-fallback {
+  transform: translateY(-1px) scale(1.02);
+  filter: drop-shadow(0 10px 16px rgba(62, 49, 37, .18));
+}
+
+.echo-page[data-echo-stage='disabled'] .echo-character-fallback {
+  opacity: .62;
+  filter: grayscale(.45) drop-shadow(0 5px 10px rgba(62, 49, 37, .12));
 }
 
 .echo-page[data-echo-stage='thinking'] .echo-thought {
   animation: echo-thought-pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes echo-boy-walk {
-  0%, 100% { transform: scale(var(--echo-boy-scale)) translateX(0) rotate(-1deg); }
-  50% { transform: scale(var(--echo-boy-scale)) translateX(10px) rotate(1deg); }
+@keyframes echo-character-breathe {
+  0%, 100% { transform: translateY(0) rotate(-.5deg); }
+  50% { transform: translateY(-3px) rotate(.5deg); }
+}
+
+@keyframes echo-character-think {
+  0%, 100% { transform: translateX(0) translateY(0) rotate(-1deg); }
+  50% { transform: translateX(6px) translateY(-2px) rotate(1deg); }
 }
 
 @keyframes echo-thought-pulse {
   0%, 100% { opacity: .32; }
   50% { opacity: .78; }
+}
+
+@keyframes echo-thinking-breathe {
+  0%, 100% { opacity: .58; transform: translateY(0); }
+  50% { opacity: .92; transform: translateY(-1px); }
 }
 
 @media (max-width: 700px) {
@@ -763,8 +750,8 @@ body.has-background-video {
     min-height: 112px;
   }
 
-  .echo-boy {
-    --echo-boy-scale: .82;
+  .echo-character {
+    width: min(32vw, 96px);
     left: 18px;
   }
 
@@ -780,9 +767,14 @@ body.has-background-video {
 
 @media (prefers-reduced-motion: reduce) {
   .echo-belt,
-  .echo-page[data-echo-stage='walk'] .echo-boy,
-  .echo-page[data-echo-stage='thinking'] .echo-boy,
-  .echo-page[data-echo-stage='thinking'] .echo-thought {
+  .echo-character-fallback,
+  .echo-page[data-echo-stage='thinking'] .echo-thought,
+  .echo-message-thinking {
     animation: none;
+  }
+
+  .echo-character,
+  .echo-character-fallback {
+    transition: none;
   }
 }

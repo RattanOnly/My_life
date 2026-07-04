@@ -285,12 +285,18 @@ test('Echo styles define hand-drawn layout and reduced motion behavior', async (
   const styles = await readFile(new URL('../source/_data/styles.styl', import.meta.url), 'utf8');
 
   assert.match(styles, /\.echo-page/);
-  assert.match(styles, /\.echo-boy/);
+  assert.match(styles, /\.echo-character/);
+  assert.match(styles, /\.echo-character-canvas/);
+  assert.match(styles, /\.echo-character-fallback/);
+  assert.match(styles, /\.echo-character-canvas,\s*\.echo-character-fallback/);
+  assert.match(styles, /\.echo-page\[data-echo-stage='thinking'\]\s+\.echo-character-fallback/);
   assert.match(styles, /\.echo-belt/);
   assert.match(styles, /\.echo-message-thinking/);
-  assert.match(styles, /@keyframes echo-thinking-breathe/);
+  assert.match(styles, /@keyframes echo-character-breathe/);
+  assert.match(styles, /@keyframes echo-character-think/);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
   assert.match(styles, /animation:\s*none/);
+  assert.doesNotMatch(styles, /\.echo-boy/);
 });
 
 test('Echo frontend does not use localStorage or sessionStorage for conversations', async () => {
@@ -531,9 +537,14 @@ test('Echo frontend recovers from 502 but keeps 503 disabled', async () => {
 test('Echo character scaling and message text wrapping are resilient', async () => {
   const styles = await readFile(new URL('../source/_data/styles.styl', import.meta.url), 'utf8');
 
-  assert.match(styles, /--echo-boy-scale:\s*1/);
-  assert.match(styles, /--echo-boy-scale:\s*\.82/);
-  assert.match(styles, /@keyframes echo-boy-walk[\s\S]*scale\(var\(--echo-boy-scale\)\)/);
+  assert.match(
+    styles,
+    /\.echo-character\s*\{[\s\S]*width:\s*min\(24vw,\s*124px\)[\s\S]*aspect-ratio:\s*1\s*\/\s*1\.32/
+  );
+  assert.match(
+    styles,
+    /@media \(max-width:\s*700px\)\s*\{[\s\S]*\.echo-character\s*\{[\s\S]*width:\s*min\(32vw,\s*96px\)/
+  );
   assert.match(
     styles,
     /\.echo-message\s*\{[\s\S]*overflow-wrap:\s*anywhere[\s\S]*white-space:\s*pre-wrap[\s\S]*min-width:\s*0/
