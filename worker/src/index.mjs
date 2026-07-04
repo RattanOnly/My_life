@@ -1,3 +1,11 @@
+import {
+  json as echoJson,
+  readEchoEnabled,
+  readEchoUsage,
+  readJson as readEchoJson,
+  writeEchoEnabled
+} from './echo-utils.mjs';
+
 const json = (body, init = {}) => new Response(JSON.stringify(body), {
   ...init,
   headers: {
@@ -21,7 +29,7 @@ const DEFAULT_COMMENT_PAGE_SIZE = 20;
 const MAX_COMMENT_PAGE_SIZE = 100;
 const COMMENT_DELETION_WINDOW_MINUTES = 10;
 const COMMENT_DELETE_TOKEN_BYTES = 24;
-const PUBLIC_CORS_PATHS = new Set(['/visits', '/presence', '/online-count', '/comments']);
+const PUBLIC_CORS_PATHS = new Set(['/visits', '/presence', '/online-count', '/comments', '/echo-status', '/echo-chat']);
 const PUBLIC_CORS_ORIGINS = new Set([
   'https://lovezvv.com',
   'https://www.lovezvv.com',
@@ -831,6 +839,31 @@ async function handleAdminDeleteComment(request, env, id) {
   return new Response(null, { status: 204 });
 }
 
+async function handleEchoStatus(env) {
+  const db = requireVisitorDb(env);
+  return echoJson({ enabled: await readEchoEnabled(db) });
+}
+
+async function handleAdminEcho(request, env) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const db = requireVisitorDb(env);
+  if (request.method === 'GET') {
+    return echoJson({ enabled: await readEchoEnabled(db) });
+  }
+
+  const body = await readEchoJson(request);
+  await writeEchoEnabled(db, Boolean(body.enabled));
+  return new Response(null, { status: 204 });
+}
+
+async function handleAdminEchoUsage(request, env) {
+  if (!isAuthorizedAdmin(request, env)) return unauthorized();
+
+  const db = requireVisitorDb(env);
+  return echoJson(await readEchoUsage(db));
+}
+
 async function cleanupVisitorLogs(env, now = new Date()) {
   const db = requireVisitorDb(env);
   const cutoff = new Date(now.getTime() - VISITOR_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
@@ -865,6 +898,10 @@ export default {
       return withPublicCors(await handleOnlineCount(env), request);
     }
 
+    if (request.method === 'GET' && url.pathname === '/echo-status') {
+      return withPublicCors(await handleEchoStatus(env), request);
+    }
+
     if (request.method === 'GET' && url.pathname === '/admin-data') {
       return handleAdminData(request, env);
     }
@@ -897,6 +934,14 @@ export default {
 
     if (request.method === 'GET' && url.pathname === '/admin-comments') {
       return handleAdminListComments(request, env);
+    }
+
+    if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/admin-echo') {
+      return handleAdminEcho(request, env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/admin-echo-usage') {
+      return handleAdminEchoUsage(request, env);
     }
 
     const adminCommentDeleteMatch = url.pathname.match(/^\/admin-comments\/(\d+)$/);
