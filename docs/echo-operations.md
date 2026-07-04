@@ -20,7 +20,7 @@ wrangler vectorize create my-life-echo-large --dimensions=3072 --metric=cosine
 
 Keep `worker/wrangler.toml` aligned with the production Cloudflare resources before deploying the Worker sidecar.
 
-The default embedding setup is `text-embedding-3-large` with `ECHO_EMBEDDING_DIMENSIONS=3072`. If you switch to `text-embedding-3-small` or another embedding model, keep all three dimensions aligned: `ECHO_EMBEDDING_DIMENSIONS`, the Cloudflare Vectorize index dimensions, and the vector length returned by the provider. The indexer validates the provider output before upsert and fails before writing to Vectorize when the dimensions do not match.
+The default embedding setup is `text-embedding-3-large` with `ECHO_EMBEDDING_DIMENSIONS=3072` for the Pages/Node indexing job. `text-embedding-3-small` is usually 1536 dimensions. If you switch models, changing environment variables is not enough: keep the Worker embedding model compatible with the Cloudflare Vectorize index, and match or recreate the Vectorize index dimensions so they match the vector length returned by the provider. The indexing job uses `ECHO_EMBEDDING_DIMENSIONS` to validate provider output before upsert and fails before Vectorize upsert when the dimensions do not match.
 
 ## Worker Secrets And Environment Variables
 
@@ -32,7 +32,6 @@ The Worker runtime needs chat, embedding, and admin authentication secrets or en
 - `ECHO_EMBEDDING_API_KEY`
 - `ECHO_EMBEDDING_BASE_URL`
 - `ECHO_EMBEDDING_MODEL`
-- `ECHO_EMBEDDING_DIMENSIONS`
 - `ADMIN_PASSWORD`
 
 Do not commit secret values. Store real provider keys and `ADMIN_PASSWORD` in Cloudflare Worker secrets or production deployment configuration only.
@@ -49,9 +48,13 @@ Cloudflare Pages builds can refresh the remote Vectorize index after the static 
 - `ECHO_EMBEDDING_MODEL`
 - `ECHO_EMBEDDING_DIMENSIONS`
 
-`ECHO_EMBEDDING_DIMENSIONS` should stay `3072` for the default `text-embedding-3-large` setup. Setting only the Cloudflare account, token, and index name is not enough for remote indexing because the Pages job must also call the embedding provider before it can upsert vectors.
+`ECHO_EMBEDDING_DIMENSIONS` should stay `3072` for the default `text-embedding-3-large` setup. If the indexing job switches to `text-embedding-3-small`, it usually needs `1536`, and the Vectorize index must be created or recreated with matching dimensions. Setting only the Cloudflare account, token, and index name is not enough for remote indexing because the Pages job must also call the embedding provider before it can upsert vectors.
 
-`CLOUDFLARE_API_TOKEN` must be scoped narrowly enough for the build job, but it must be able to update the Cloudflare Vectorize index. Local builds and Pages builds without the complete indexing variable set skip the remote Vectorize rebuild.
+`CLOUDFLARE_API_TOKEN` must be scoped narrowly enough for the build job, but it must be able to update the Cloudflare Vectorize index. Index refresh has three distinct outcomes:
+
+- Dry run (`ECHO_INDEX_DRY_RUN=1`) extracts documents only, with no embedding provider calls and no Vectorize calls.
+- Builds missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN skip the remote Vectorize rebuild.
+- Builds with Cloudflare account/token present but incomplete embedding provider environment, or provider dimensions that do not match `ECHO_EMBEDDING_DIMENSIONS`, fail before Vectorize upsert.
 
 Production-scoped environment variables are safer. Preview builds that receive the same variables can mutate the shared `my-life-echo-large` index, so avoid exposing the production indexing token to preview contexts unless that is intentional.
 

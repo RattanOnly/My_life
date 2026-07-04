@@ -13,10 +13,15 @@ test('Echo operations documentation covers Cloudflare setup, indexing, privacy, 
     'ECHO_EMBEDDING_API_KEY',
     'ECHO_EMBEDDING_DIMENSIONS',
     'text-embedding-3-large',
+    'text-embedding-3-small',
+    '1536',
     'wrangler vectorize create my-life-echo-large --dimensions=3072 --metric=cosine',
     'CLOUDFLARE_ACCOUNT_ID',
     'CLOUDFLARE_API_TOKEN',
     'ECHO_VECTORIZE_INDEX',
+    'extracts documents only',
+    'missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN',
+    'fails before Vectorize upsert',
     'ECHO_INDEX_DRY_RUN=1 npm run echo:index',
     'ADMIN_PASSWORD',
     '/admin-echo',
@@ -30,6 +35,11 @@ test('Echo operations documentation covers Cloudflare setup, indexing, privacy, 
   ]) {
     assert.match(doc, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+
+  const workerRuntimeSection = doc.match(
+    /## Worker Secrets And Environment Variables[\s\S]*?## Cloudflare Pages Build Variables/
+  )?.[0] ?? '';
+  assert.doesNotMatch(workerRuntimeSection, /ECHO_EMBEDDING_DIMENSIONS/);
 
   assert.doesNotMatch(doc, /sk-[A-Za-z0-9_-]{8,}/);
 });
