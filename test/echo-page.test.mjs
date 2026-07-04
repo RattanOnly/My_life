@@ -44,12 +44,19 @@ test('Echo frontend does not use localStorage or sessionStorage for conversation
   assert.doesNotMatch(script, /indexedDB/);
 });
 
-test('Echo frontend submit stays clearly unavailable until backend is connected', async () => {
+test('Echo frontend posts only active page-session messages and handles disabled state', async () => {
   const script = await readFile(new URL('../source/js/echo-chat.js', import.meta.url), 'utf8');
 
-  assert.match(script, /Echo 还在准备中，等后端接好后就可以说话。/);
-  assert.doesNotMatch(script, /addEventListener\('submit'[\s\S]*appendMessage\('user'/);
-  assert.doesNotMatch(script, /setStage\('thinking'\)/);
+  assert.match(script, /chatEndpoint/);
+  assert.match(script, /statusEndpoint/);
+  assert.match(script, /fetch\(chatEndpoint/);
+  assert.match(script, /history\.slice\(-6\)/);
+  assert.match(script, /Echo 正在想一想。/);
+  assert.match(script, /这阵回声暂时坐下来休息了/);
+  assert.match(script, /setStage\('thinking'\)/);
+  assert.match(script, /setStage\('reply_ready'\)/);
+  assert.match(script, /credentials:\s*'omit'/);
+  assert.doesNotMatch(script, /localStorage|sessionStorage|indexedDB/);
 });
 
 test('Echo character scaling and message text wrapping are resilient', async () => {
