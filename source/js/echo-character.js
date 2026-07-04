@@ -153,6 +153,7 @@
       var inputs = {};
       var currentState = 'idle';
       var destroyed = false;
+      var settleReadyOnDestroy = null;
 
       function fallbackReady() {
         if (destroyed) {
@@ -206,6 +207,9 @@
 
       function destroy() {
         destroyed = true;
+        if (settleReadyOnDestroy) {
+          settleReadyOnDestroy();
+        }
         cleanupRive();
       }
 
@@ -241,14 +245,24 @@
           }) : undefined;
           return new Promise(function createRiveInstance(resolve) {
             var settled = false;
+            var settleOnDestroy = null;
 
             function finish(value) {
               if (settled) {
                 return;
               }
               settled = true;
+              if (settleReadyOnDestroy === settleOnDestroy) {
+                settleReadyOnDestroy = null;
+              }
               resolve(value);
             }
+
+            settleOnDestroy = function settleOnDestroy() {
+              cleanupRive();
+              finish(false);
+            };
+            settleReadyOnDestroy = settleOnDestroy;
 
             function completeFallback(error) {
               if (settled) {

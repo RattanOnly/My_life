@@ -362,6 +362,46 @@ test('destroy before Rive onLoad cancels input binding and ready state', async (
   assert.equal(calls.resizeDrawingSurfaceToCanvas, 0);
 });
 
+test('destroy after Rive construction settles ready false when runtime never calls back', async () => {
+  let riveOptions = null;
+  const calls = {
+    cleanup: 0
+  };
+  class FakeRive {
+    constructor(options) {
+      riveOptions = options;
+    }
+
+    cleanup() {
+      calls.cleanup += 1;
+    }
+  }
+
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: async () => ({
+      Rive: FakeRive,
+      RuntimeLoader: { setWasmUrl() {}, setWasmFallbackUrl() {} }
+    })
+  }).create(root);
+
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(riveOptions);
+
+  adapter.destroy();
+
+  const ready = await Promise.race([
+    adapter.ready,
+    new Promise((resolve, reject) => {
+      setTimeout(() => reject(new Error('adapter.ready did not settle after destroy')), 50);
+    })
+  ]);
+  assert.equal(ready, false);
+  assert.equal(calls.cleanup, 1);
+  assert.notEqual(shell.dataset.echoCharacterReady, 'rive');
+});
+
 test('destroy before the Rive runtime resolves prevents instance creation', async () => {
   let resolveRuntime = null;
   let constructed = 0;
@@ -392,6 +432,24 @@ test('destroy before the Rive runtime resolves prevents instance creation', asyn
   assert.equal(await adapter.ready, false);
   assert.equal(constructed, 0);
   assert.equal(shell.dataset.echoCharacterReady, undefined);
+});
+
+test('falls back when the Rive constructor throws synchronously', async () => {
+  const EchoCharacter = await loadCharacterApi();
+  const { root, shell } = createRoot();
+  const adapter = EchoCharacter.createWithDeps({
+    loadRive: async () => ({
+      Rive: class FakeRive {
+        constructor() {
+          throw new Error('constructor unavailable');
+        }
+      },
+      RuntimeLoader: { setWasmUrl() {}, setWasmFallbackUrl() {} }
+    })
+  }).create(root);
+
+  assert.equal(await adapter.ready, false);
+  assert.equal(shell.dataset.echoCharacterReady, 'fallback');
 });
 
 test('uses fallback immediately for reduced motion without loading Rive', async () => {
@@ -460,6 +518,7 @@ test('default script loader retries after a script load failure', async () => {
 
   const firstLoad = loader.loadRive();
   assert.equal(scripts.length, 1);
+  assert.equal(scripts[0].src, '/vendor/rive/rive.js');
   scripts[0].onerror();
   await assert.rejects(firstLoad, /Failed to load Rive runtime/);
   assert.equal(scripts[0].removed, true);
