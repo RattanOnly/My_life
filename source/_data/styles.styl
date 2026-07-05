@@ -535,9 +535,10 @@ body.has-background-video {
 }
 
 .echo-page {
+  position: relative;
   max-width: 860px;
   margin: 0 auto;
-  padding: 36px 18px 56px;
+  padding: 18px 18px 56px;
 }
 
 .echo-scene {
@@ -546,13 +547,15 @@ body.has-background-video {
 }
 
 .echo-character {
-  position: absolute;
-  left: 42px;
-  bottom: 8px;
-  width: min(24vw, 124px);
+  position: relative;
+  z-index: 3;
+  width: clamp(118px, 22vw, 172px);
   aspect-ratio: 1 / 1.32;
+  margin: 8px 0 -38px clamp(18px, 8vw, 76px);
   transform-origin: 50% 100%;
-  transition: transform .28s ease, filter .28s ease, opacity .28s ease;
+  transition: transform .36s cubic-bezier(.22, 1, .36, 1), filter .36s ease, opacity .36s ease;
+  will-change: transform, opacity;
+  pointer-events: none;
 }
 
 .echo-character::after {
@@ -567,7 +570,6 @@ body.has-background-video {
   filter: blur(3px);
 }
 
-.echo-character-canvas,
 .echo-character-fallback {
   position: absolute;
   inset: 0;
@@ -576,24 +578,21 @@ body.has-background-video {
   height: 100%;
 }
 
-.echo-character-canvas {
-  display: none;
-}
-
 .echo-character-fallback {
   object-fit: contain;
   filter: drop-shadow(0 8px 14px rgba(62, 49, 37, .16));
   transform-origin: 50% 88%;
   animation: echo-character-breathe 3.4s ease-in-out infinite;
-  transition: transform .28s ease, filter .28s ease, opacity .28s ease;
+  transition: transform .36s cubic-bezier(.22, 1, .36, 1), filter .36s ease, opacity .36s ease;
+  will-change: transform, opacity;
 }
 
-.echo-character[data-echo-character-ready='rive'] .echo-character-canvas {
-  display: block;
-}
-
-.echo-character[data-echo-character-ready='rive'] .echo-character-fallback {
-  display: none;
+.post-body .echo-character-fallback {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
 }
 
 .echo-thought {
@@ -607,6 +606,7 @@ body.has-background-video {
 
 .echo-chat-panel {
   position: relative;
+  z-index: 1;
   border: 1px solid rgba(55, 45, 35, .16);
   border-radius: 18px;
   background: rgba(255, 252, 246, .92);
@@ -722,13 +722,13 @@ body.has-background-video {
 }
 
 @keyframes echo-character-breathe {
-  0%, 100% { transform: translateY(0) rotate(-.5deg); }
-  50% { transform: translateY(-3px) rotate(.5deg); }
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-.5deg); }
+  50% { transform: translate3d(0, -3px, 0) rotate(.5deg); }
 }
 
 @keyframes echo-character-think {
-  0%, 100% { transform: translateX(0) translateY(0) rotate(-1deg); }
-  50% { transform: translateX(6px) translateY(-2px) rotate(1deg); }
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg); }
+  50% { transform: translate3d(4px, -2px, 0) rotate(.8deg); }
 }
 
 @keyframes echo-thought-pulse {
@@ -743,7 +743,7 @@ body.has-background-video {
 
 @media (max-width: 700px) {
   .echo-page {
-    padding: 22px 12px 44px;
+    padding: 14px 12px 44px;
   }
 
   .echo-scene {
@@ -751,8 +751,8 @@ body.has-background-video {
   }
 
   .echo-character {
-    width: min(32vw, 96px);
-    left: 18px;
+    width: clamp(96px, 32vw, 132px);
+    margin: 4px auto -28px;
   }
 
   .echo-message {

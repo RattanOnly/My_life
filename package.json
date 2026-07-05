@@ -3,9 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "npm run copy:rive && ./tools/hexo-env.sh generate",
+    "build": "./tools/hexo-env.sh generate",
     "clean": "./tools/hexo-env.sh clean",
-    "copy:rive": "node tools/echo/copy-rive-runtime.mjs",
     "echo:index": "node tools/echo/build-index.mjs",
     "test": "node --test",
     "postbuild": "node tools/echo/build-index.mjs",
@@ -14,14 +13,13 @@
     "server": "./tools/hexo-env.sh server",
     "hexo:watch": "./tools/hexo-env.sh server --watch",
     "bs:proxy": "browser-sync start --proxy http://localhost:4000 --files public/**/* --reload-delay 200 --no-open",
-    "predev": "npm run copy:rive && ./tools/hexo-env.sh clean && ./tools/hexo-env.sh generate && ./tools/hexo-env.sh algolia",
+    "predev": "./tools/hexo-env.sh clean && ./tools/hexo-env.sh generate && ./tools/hexo-env.sh algolia",
     "dev": "npm-run-all --parallel hexo:watch bs:proxy"
   },
   "hexo": {
-    "version": "8.1.1"
+    "version": "8.1.2"
   },
   "dependencies": {
-    "@rive-app/canvas-lite": "^2.38.4",
     "hexo": "^8.1.2",
     "hexo-algoliasearch": "^2.0.1",
     "hexo-generator-archive": "^2.0.0",

@@ -74,7 +74,7 @@ test('chunkEchoText produces bounded chunks with stable indexes', () => {
   assert.equal(chunks[2].chunkIndex, 2);
 });
 
-test('buildEchoDocuments includes public posts and tone summary only', async () => {
+test('buildEchoDocuments includes public posts, owner profile, and tone summary only', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'echo-index-'));
   await mkdir(path.join(root, 'source/_posts'), { recursive: true });
   await mkdir(path.join(root, 'source/_data'), { recursive: true });
@@ -92,13 +92,21 @@ draft: true
 
 草稿正文
 `);
+  await writeFile(path.join(root, 'source/_data/echo-owner-profile.md'), '赵威创造了这个网站和回声。亲近的人也可以叫他威威。');
   await writeFile(path.join(root, 'source/_data/echo-tone-summary.md'), '他常常写时间、家人、迷茫和继续往前走。');
 
   const documents = await buildEchoDocuments(root);
 
   assert.equal(documents.some(document => document.title === 'Draft Post'), false);
   assert.equal(documents.some(document => document.title === 'Public Post'), true);
+  assert.equal(documents.some(document => document.id === 'owner-public-profile-0'), true);
   assert.equal(documents.some(document => document.id === 'owner-tone-summary-0'), true);
+  assert.equal(
+    documents.find(document => document.id === 'owner-public-profile-0').title,
+    'Owner-Approved Public Profile'
+  );
+  assert.match(documents.find(document => document.id === 'owner-public-profile-0').text, /赵威/);
+  assert.match(documents.find(document => document.id === 'owner-public-profile-0').text, /威威/);
   assert.equal(documents.find(document => document.title === 'Public Post').path, '/2026/07/04/public/');
 });
 
@@ -297,7 +305,7 @@ test('Vectorize upsert uses v2 URL, POST FormData body field, and NDJSON vectors
 test('package scripts run the Echo indexer after static builds without requiring local secrets', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
-  assert.equal(packageJson.scripts.build, 'npm run copy:rive && ./tools/hexo-env.sh generate');
+  assert.equal(packageJson.scripts.build, './tools/hexo-env.sh generate');
   assert.equal(packageJson.scripts['echo:index'], 'node tools/echo/build-index.mjs');
   assert.equal(packageJson.scripts.postbuild, 'node tools/echo/build-index.mjs');
 });

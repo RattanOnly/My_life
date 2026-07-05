@@ -2,10 +2,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
-const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-large';
-const DEFAULT_EMBEDDING_DIMENSIONS = 3072;
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 const DEFAULT_MAX_CHUNK_LENGTH = 900;
-const DEFAULT_VECTORIZE_INDEX = 'my-life-echo-large';
+const DEFAULT_VECTORIZE_INDEX = 'my-life-echo-small';
 const VECTORIZE_API_BASE = 'https://api.cloudflare.com/client/v4';
 
 export function parsePostFrontMatter(markdown) {
@@ -80,6 +80,18 @@ export async function buildEchoDocuments(rootDir = process.cwd()) {
         text: chunk.text,
         chunkIndex: chunk.chunkIndex
       });
+    });
+  }
+
+  const ownerProfilePath = path.join(rootDir, 'source/_data/echo-owner-profile.md');
+  const ownerProfile = await readFile(ownerProfilePath, 'utf8').catch(() => '');
+  if (ownerProfile.trim()) {
+    documents.push({
+      id: 'owner-public-profile-0',
+      title: 'Owner-Approved Public Profile',
+      path: '/echo/',
+      text: stripMarkdown(ownerProfile),
+      chunkIndex: 0
     });
   }
 

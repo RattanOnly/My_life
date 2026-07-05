@@ -21,7 +21,7 @@ The visual direction is hand-drawn storybook.
 - The chat box should feel simple, plain, warm, and paper-like.
 - The moving "conveyor belt" effect should be subtle: a light texture or line movement on the chat surface, not a heavy mechanical object.
 
-The first implementation may use a lightweight interim SVG/CSS character, but the architecture should leave a clear adapter boundary so a future `.riv` character asset can replace it without rewriting chat logic.
+The character should be implemented as a scoped SVG/CSS component behind a small adapter boundary, so chat logic can ask for semantic states without knowing how the drawing is animated.
 
 ## Page Placement
 
@@ -40,9 +40,9 @@ The likely route is `/echo/`.
 
 The page should use minimal, human copy. The opening notice should be short and visible before the first message:
 
-> 这里不是他本人，只是一些从他的文字里长出来的回声。你的对话不会被保存。
+> 我不是他本人，只是这些文字里慢慢长出来的一点回声。你可以安心说，话会停在这次相遇里，不会被拿去给人翻看。
 
-The privacy notice should stay plain. It must not sound legalistic, but it must be clear that conversations are not saved and only minimal operational status may be recorded to prevent abuse.
+The privacy notice should stay plain and human. It should avoid legalistic phrasing such as "your conversation will not be saved", but still make clear that chat content is not retained for the owner to read and only minimal operational status may be recorded to prevent abuse.
 
 When Echo does not know something personal about the owner, it should answer warmly:
 
@@ -108,7 +108,7 @@ Backend:
 
 Retrieval:
 
-- published blog posts and the Owner-Approved Tone Summary form the Public Writing Source
+- published blog posts, the Owner-Approved Public Profile, and the Owner-Approved Tone Summary form the Public Writing Source
 - drafts, comments, visitor logs, and private files are excluded
 - published posts enter the retrieval index by default
 - article edits refresh indexed fragments
@@ -123,7 +123,7 @@ Embedding:
 
 ## Animation Architecture
 
-The preferred long-term animation runtime is Rive because the character has interactive states rather than a single decorative loop.
+The preferred long-term animation approach is a scoped SVG/CSS character adapter because Echo needs expressive states, but the site should remain lightweight and easy to maintain.
 
 The animation adapter should expose semantic states:
 
@@ -133,9 +133,9 @@ The animation adapter should expose semantic states:
 - `reply_ready`
 - `disabled`
 
-The chat UI should not depend directly on Rive APIs. Instead, the chat state manager calls an adapter such as `setEchoAnimationState('thinking')`. The first version can map those states to SVG/CSS classes. A later Rive version can map them to Rive state machine inputs.
+The chat UI should not depend directly on drawing details. Instead, the chat state manager calls an adapter such as `setEchoAnimationState('thinking')`, and the adapter maps those states to SVG elements, CSS classes, and small JavaScript state markers.
 
-dotLottie remains a viable fallback for simpler one-shot animations, but it is not the recommended first architecture for the companion character because Echo needs stateful behavior.
+Pre-rendered animation formats remain viable for simpler one-shot moments, but they are not the recommended first architecture for the companion character because Echo needs stateful behavior.
 
 ## Admin Requirements
 
@@ -190,13 +190,12 @@ Out of scope for first version:
 - saved conversation history
 - owner-visible prompt/reply transcripts
 - voice chat
-- full Rive production character asset
+- production-grade SVG character variants beyond the first page version
 - birthday gift-box animation
 - weather system
 - forum-like social features
 
 ## References
 
-- Rive runtime and state-machine direction: https://github.com/rive-app/rive-runtime
-- Rive examples and learning resources: https://github.com/rive-app/awesome-rive
-- dotLottie Web player fallback reference: https://github.com/LottieFiles/dotlottie-web
+- SVG animation reference: https://developer.mozilla.org/en-US/docs/Web/SVG/SVG_animation_with_SMIL
+- CSS transform animation reference: https://developer.mozilla.org/en-US/docs/Web/CSS/transform

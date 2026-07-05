@@ -2,6 +2,7 @@
 title: Echo
 date: 2026-07-04 00:00:00
 type: echo
+header: false
 comments: false
 ---
 
@@ -15,15 +16,8 @@ data-echo-stage="idle"
 <div
 class="echo-character"
 data-echo-character
-data-echo-rive-src="/echo/assets/echo-boy.riv"
 aria-hidden="true"
 >
-<canvas
-class="echo-character-canvas"
-data-echo-rive-canvas
-width="320"
-height="240"
-></canvas>
 <img
 class="echo-character-fallback"
 data-echo-character-fallback
@@ -37,7 +31,7 @@ decoding="async"
 
 <div class="echo-chat-panel">
 <div class="echo-belt" aria-hidden="true"></div>
-<p class="echo-identity">这里不是他本人，只是一些从他的文字里长出来的回声。你的对话不会被保存。</p>
+<p class="echo-identity">我不是他本人，只是这些文字里慢慢长出来的一点回声。你可以安心说，话会停在这次相遇里，不会被拿去给人翻看。</p>
 <div class="echo-messages" data-echo-messages aria-live="polite"></div>
 <form class="echo-form" data-echo-form>
 <label for="echo-message">你想和这阵回声说什么</label>

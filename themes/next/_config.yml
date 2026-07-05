@@ -122,7 +122,7 @@ menu:
   分类: /categories/ || fa fa-th
   关于我: /about/ || fa fa-user
   标签: /tags/ || fa fa-tags
-  Echo: /echo/ || fa fa-comment-dots
+  回声: /echo/ || fa fa-comment-dots
   #schedule: /schedule/ || fa fa-calendar
   #sitemap: /sitemap.xml || fa fa-sitemap
   #commonweal: /404/ || fa fa-heartbeat

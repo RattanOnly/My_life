@@ -24,6 +24,7 @@
   const statusEndpoint = resolveEndpoint(root.dataset.echoStatusEndpoint, '/echo-status');
   const disabledMessage = '这阵回声暂时坐下来休息了。晚一点再来找他吧。';
   const history = [];
+  let characterStage = null;
   const createNoopCharacter = () => ({
     ready: Promise.resolve(false),
     playEntrance() {},
@@ -62,6 +63,8 @@
 
   const setStage = stage => {
     root.dataset.echoStage = stage;
+    if (characterStage === stage) return;
+    characterStage = stage;
     callCharacter(character, 'setState', stage);
   };
 

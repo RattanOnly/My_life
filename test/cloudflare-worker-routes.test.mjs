@@ -39,7 +39,7 @@ test('Cloudflare Worker Routes own Visitor state API paths on production domains
   const zoneNameCount = (config.match(/zone_name\s*=\s*"lovezvv\.com"/g) || []).length;
   assert.equal(zoneNameCount, routePatterns.length);
   assert.match(config, /binding\s*=\s*"ECHO_VECTORIZE"/);
-  assert.match(config, /index_name\s*=\s*"my-life-echo-large"/);
+  assert.match(config, /index_name\s*=\s*"my-life-echo-small"/);
   assert.doesNotMatch(config, /netlify/i);
 });
 

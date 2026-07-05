@@ -110,4 +110,4 @@ migrations_dir = "migrations"
 
 [[vectorize]]
 binding = "ECHO_VECTORIZE"
-index_name = "my-life-echo-large"
+index_name = "my-life-echo-small"

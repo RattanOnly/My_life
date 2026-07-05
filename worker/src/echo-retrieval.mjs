@@ -1,4 +1,4 @@
-const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-large';
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
 function buildProviderUrl(baseUrl, path) {
   let url;

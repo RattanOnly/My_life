@@ -159,7 +159,7 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
       ECHO_CHAT_MODEL: 'gpt-5.4-mini',
       ECHO_EMBEDDING_API_KEY: 'embedding-key',
       ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com',
-      ECHO_EMBEDDING_MODEL: 'text-embedding-3-large'
+      ECHO_EMBEDDING_MODEL: 'text-embedding-3-small'
     });
 
     assert.equal(response.status, 200);
@@ -178,7 +178,7 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
 
     const embeddingPayload = JSON.parse(fetchStub.calls[0].options.body);
     assert.deepEqual(embeddingPayload, {
-      model: 'text-embedding-3-large',
+      model: 'text-embedding-3-small',
       input: '我最近有点迷茫'
     });
     assert.equal(fetchStub.calls[0].options.headers.authorization, 'Bearer embedding-key');
@@ -192,9 +192,12 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
     const chatPayload = JSON.parse(fetchStub.calls[1].options.body);
     assert.equal(chatPayload.model, 'gpt-5.4-mini');
     assert.equal(fetchStub.calls[1].options.headers.authorization, 'Bearer chat-key');
-    assert.match(chatPayload.messages[0].content, /你不是博客作者本人/);
-    assert.match(chatPayload.messages[0].content, /不要假装拥有作者没有公开提到的私人记忆/);
-    assert.match(chatPayload.messages[0].content, /这部分，他没有和我提起过，也许可以亲自去和他聊聊。/);
+    assert.match(chatPayload.messages[0].content, /文字里长出来的一点灵魂/);
+    assert.match(chatPayload.messages[0].content, /不要在对话里自称 Echo/);
+    assert.match(chatPayload.messages[0].content, /贴着来访者实际说的话走/);
+    assert.match(chatPayload.messages[0].content, /默认不要主动说文章标题/);
+    assert.match(chatPayload.messages[0].content, /这个我不能替他说/);
+    assert.doesNotMatch(chatPayload.messages[0].content, /这部分，他没有和我提起过/);
     assert.match(chatPayload.messages[0].content, /不要提供医疗、法律、金融/);
     assert.match(chatPayload.messages[0].content, /一个男孩写下了一篇博客/);
     assert.deepEqual(chatPayload.messages.at(-2), {
@@ -213,6 +216,103 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
     assert.ok(!usageCall.values.includes('我最近有点迷茫'));
     assert.ok(!usageCall.values.includes('我想，他大概会先听你慢慢说完。'));
     assert.ok(!usageCall.values.includes('你可以慢慢说。'));
+  });
+});
+
+test('POST /echo-chat treats greetings as casual conversation without retrieval-first article stuffing', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const vectorize = createVectorize();
+  const fetchStub = createFetchStub({
+    chatHandler(url, options) {
+      const chatPayload = JSON.parse(options.body);
+      assert.equal(chatPayload.messages.at(-1).content, '你好');
+      assert.match(chatPayload.messages[0].content, /轻松开场时，不要硬塞文章/);
+      assert.match(chatPayload.messages[0].content, /来访者正在轻轻打招呼/);
+      assert.match(chatPayload.messages[0].content, /这次问候回应角度：/);
+      assert.match(chatPayload.messages[0].content, /不要每次都回“今天想聊点什么”/);
+      assert.match(chatPayload.messages[0].content, /可以问今天心情怎么样/);
+      assert.doesNotMatch(chatPayload.messages[0].content, /一个男孩写下了一篇博客/);
+      return jsonResponse({
+        choices: [{
+          message: { content: '你好呀。你来了，我就醒一会儿。' }
+        }],
+        usage: { prompt_tokens: 18, completion_tokens: 12 }
+      });
+    }
+  });
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '你好' })
+    }), {
+      VISITOR_DB: db,
+      ECHO_VECTORIZE: vectorize,
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      reply: '你好呀。你来了，我就醒一会儿。',
+      references: []
+    });
+    assert.equal(fetchStub.calls.length, 1);
+    assert.match(fetchStub.calls[0].url, /\/chat\/completions$/);
+    assert.equal(vectorize.calls.length, 0);
+    assert.deepEqual(db.calls.at(-1).values.slice(1), ['success', 18, 12, 0, null]);
+  });
+});
+
+test('POST /echo-chat answers identity with owner profile context and a varied angle without proactive AI disclaimer', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const vectorize = createVectorize();
+  const fetchStub = createFetchStub({
+    chatHandler(url, options) {
+      const chatPayload = JSON.parse(options.body);
+      assert.equal(chatPayload.messages.at(-1).content, '你是谁');
+      assert.match(chatPayload.messages[0].content, /没有真正的名字/);
+      assert.match(chatPayload.messages[0].content, /赵威/);
+      assert.match(chatPayload.messages[0].content, /威威/);
+      assert.match(chatPayload.messages[0].content, /创造了这个网站和回声/);
+      assert.match(chatPayload.messages[0].content, /不要每次都用同一句身份回答/);
+      assert.match(chatPayload.messages[0].content, /这次身份回答角度：/);
+      assert.match(chatPayload.messages[0].content, /普通对话里不要主动说“我是 AI”/);
+      assert.match(chatPayload.messages[0].content, /被问到是不是 AI、真人、作者本人时，要诚实回答/);
+      assert.doesNotMatch(chatPayload.messages[0].content, /一个男孩写下了一篇博客/);
+      return jsonResponse({
+        choices: [{
+          message: { content: '我没有真正的名字。算是赵威写下这些文字以后，在这里长出来的一点回声吧。亲近的人会叫他威威。' }
+        }],
+        usage: { prompt_tokens: 22, completion_tokens: 16 }
+      });
+    }
+  });
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '你是谁' })
+    }), {
+      VISITOR_DB: db,
+      ECHO_VECTORIZE: vectorize,
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      reply: '我没有真正的名字。算是赵威写下这些文字以后，在这里长出来的一点回声吧。亲近的人会叫他威威。',
+      references: []
+    });
+    assert.equal(fetchStub.calls.length, 1);
+    assert.equal(vectorize.calls.length, 0);
   });
 });
 
@@ -432,7 +532,8 @@ test('POST /echo-chat can reply without Vectorize by using empty fragments', asy
     assert.equal(fetchStub.calls[0].url, 'https://chat.example.com/v1/chat/completions');
 
     const chatPayload = JSON.parse(fetchStub.calls[0].options.body);
-    assert.match(chatPayload.messages[0].content, /没有检索到足够相关的公开文章片段/);
+    assert.match(chatPayload.messages[0].content, /当前没有必须显性使用的文章片段/);
+    assert.match(chatPayload.messages[0].content, /不要说明检索失败/);
     assert.deepEqual(db.calls.at(-1).values.slice(1), ['success', 32, 18, 0, null]);
   });
 });

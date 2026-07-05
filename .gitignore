@@ -4,7 +4,6 @@ db.json
 *.log
 node_modules/
 public/
-source/vendor/rive/
 .deploy*/
 .worktrees/
 .superpowers/

@@ -173,17 +173,24 @@ test('Echo page renders a standalone AI conversation shell', async () => {
 
   assert.match(page, /title:\s*Echo/);
   assert.match(page, /type:\s*echo/);
+  assert.match(page, /header:\s*false/);
   assert.match(page, /comments:\s*false/);
   assert.match(page, /id="echo-page"/);
   assert.match(page, /data-echo-chat-endpoint="\/echo-chat"/);
   assert.match(page, /data-echo-status-endpoint="\/echo-status"/);
   assert.match(page, /data-echo-stage="idle"/);
-  assert.match(page, /这里不是他本人，只是一些从他的文字里长出来的回声。你的对话不会被保存。/);
+  assert.match(page, /我不是他本人，只是这些文字里慢慢长出来的一点回声。你可以安心说，话会停在这次相遇里，不会被拿去给人翻看。/);
+  assert.doesNotMatch(page, /这里不是他本人，只是一些从他的文字里长出来的回声。你的对话不会被保存。/);
   assert.match(page, /data-echo-character/);
-  assert.match(page, /data-echo-rive-canvas/);
   assert.match(page, /data-echo-character-fallback/);
   assert.match(page, /src="\/echo\/assets\/echo-boy-fallback\.svg"/);
-  assert.match(page, /data-echo-rive-src="\/echo\/assets\/echo-boy\.riv"/);
+  const legacyRuntimePattern = new RegExp([
+    'r' + 'ive',
+    '\\.' + 'r' + 'iv',
+    'data-echo-' + 'r' + 'ive',
+    'echo-character-' + 'canvas'
+  ].join('|'), 'i');
+  assert.doesNotMatch(page, legacyRuntimePattern);
   assert.match(page, /data-echo-messages/);
   assert.match(page, /data-echo-form/);
   assert.match(page, /name="message"/);
@@ -191,6 +198,13 @@ test('Echo page renders a standalone AI conversation shell', async () => {
   assert.match(page, /\/js\/echo-character\.js/);
   assert.match(page, /\/js\/echo-chat\.js/);
   assert.doesNotMatch(page, /class="echo-boy"/);
+});
+
+test('NexT page template can hide page headers for focused custom pages', async () => {
+  const template = await readFile(new URL('../themes/next/layout/page.swig', import.meta.url), 'utf8');
+
+  assert.match(template, /page\.header\s*!==\s*false/);
+  assert.match(template, /include '_partials\/page\/page-header\.swig'/);
 });
 
 test('Echo frontend keeps initializing and loading status when character creation throws', async () => {
@@ -278,7 +292,7 @@ test('Echo frontend isolates character play and state failures from chat behavio
 test('Echo is available from the main navigation', async () => {
   const config = await readFile(new URL('../themes/next/_config.yml', import.meta.url), 'utf8');
 
-  assert.match(config, /menu:\n(?:.*\n)*?\s+Echo:\s+\/echo\/\s+\|\|\s+fa fa-comment-dots/);
+  assert.match(config, /menu:\n(?:.*\n)*?\s+回声:\s+\/echo\/\s+\|\|\s+fa fa-comment-dots/);
 });
 
 test('Echo styles define hand-drawn layout and reduced motion behavior', async () => {
@@ -286,9 +300,15 @@ test('Echo styles define hand-drawn layout and reduced motion behavior', async (
 
   assert.match(styles, /\.echo-page/);
   assert.match(styles, /\.echo-character/);
-  assert.match(styles, /\.echo-character-canvas/);
+  assert.match(styles, /\.echo-character\s*\{(?:[^{}]|\n)*z-index:\s*3/);
+  assert.match(styles, /\.echo-chat-panel\s*\{(?:[^{}]|\n)*z-index:\s*1/);
   assert.match(styles, /\.echo-character-fallback/);
-  assert.match(styles, /\.echo-character-canvas,\s*\.echo-character-fallback/);
+  assert.match(styles, /\.post-body\s+\.echo-character-fallback\s*\{[\s\S]*max-width:\s*none[\s\S]*max-height:\s*none[\s\S]*margin:\s*0/);
+  const legacyRuntimePattern = new RegExp([
+    'r' + 'ive',
+    'echo-character-' + 'canvas'
+  ].join('|'), 'i');
+  assert.doesNotMatch(styles, legacyRuntimePattern);
   assert.match(styles, /\.echo-page\[data-echo-stage='thinking'\]\s+\.echo-character-fallback/);
   assert.match(styles, /\.echo-belt/);
   assert.match(styles, /\.echo-message-thinking/);
@@ -389,7 +409,25 @@ test('Echo frontend maps input focus and blur to idle or listening states', asyn
   assert.equal(runtime.root.dataset.echoStage, 'idle');
   assert.deepEqual(
     runtime.characterCalls.filter(call => call.type === 'setState').map(call => call.stage),
-    ['idle', 'idle', 'listening', 'idle']
+    ['idle', 'listening', 'idle']
+  );
+});
+
+test('Echo frontend does not send duplicate character states for repeated input events', async () => {
+  const runtime = createEchoRuntime();
+
+  await runEchoScript(runtime);
+
+  runtime.textarea.value = '慢慢说';
+  runtime.textarea.dispatch('focus');
+  runtime.textarea.dispatch('input');
+  runtime.textarea.dispatch('input');
+  runtime.textarea.dispatch('focus');
+
+  assert.equal(runtime.root.dataset.echoStage, 'listening');
+  assert.deepEqual(
+    runtime.characterCalls.filter(call => call.type === 'setState').map(call => call.stage),
+    ['idle', 'listening']
   );
 });
 
@@ -539,11 +577,11 @@ test('Echo character scaling and message text wrapping are resilient', async () 
 
   assert.match(
     styles,
-    /\.echo-character\s*\{[\s\S]*width:\s*min\(24vw,\s*124px\)[\s\S]*aspect-ratio:\s*1\s*\/\s*1\.32/
+    /\.echo-character\s*\{[\s\S]*width:\s*clamp\(118px,\s*22vw,\s*172px\)[\s\S]*aspect-ratio:\s*1\s*\/\s*1\.32/
   );
   assert.match(
     styles,
-    /@media \(max-width:\s*700px\)\s*\{[\s\S]*\.echo-character\s*\{[\s\S]*width:\s*min\(32vw,\s*96px\)/
+    /@media \(max-width:\s*700px\)\s*\{[\s\S]*\.echo-character\s*\{[\s\S]*width:\s*clamp\(96px,\s*32vw,\s*132px\)/
   );
   assert.match(
     styles,
