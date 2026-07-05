@@ -11,6 +11,7 @@ const MAX_ECHO_MESSAGE_LENGTH = 1000;
 const MAX_ECHO_HISTORY_ITEMS = 6;
 const MAX_ECHO_HISTORY_TEXT_LENGTH = 500;
 const DEFAULT_CHAT_MODEL = 'gpt-5.4-mini';
+const ALLOWED_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 const OWNER_PUBLIC_PROFILE = [
   '站长公开资料：',
   '这个网站由赵威写下和维护。亲近的人也可以叫他威威。',
@@ -152,6 +153,11 @@ function greetingReplyAngle() {
   return GREETING_REPLY_ANGLES[randomIndex(GREETING_REPLY_ANGLES.length)];
 }
 
+function readReasoningEffort(value) {
+  const effort = cleanText(value, 20).toLowerCase();
+  return ALLOWED_REASONING_EFFORTS.has(effort) ? effort : '';
+}
+
 function buildSystemPrompt(fragments, { retrievalSkipped = false, identityTurn = false, greetingTurn = false } = {}) {
   const sourceText = fragments.length
     ? fragments.map((fragment, index) => [
@@ -218,17 +224,23 @@ async function callChatProvider({
 
   let response;
   try {
+    const payload = {
+      model: env.ECHO_CHAT_MODEL || DEFAULT_CHAT_MODEL,
+      messages,
+      temperature: 0.8
+    };
+    const reasoningEffort = readReasoningEffort(env.ECHO_CHAT_REASONING_EFFORT);
+    if (reasoningEffort) {
+      payload.reasoning_effort = reasoningEffort;
+    }
+
     response = await fetch(buildProviderUrl(env.ECHO_CHAT_BASE_URL, 'chat/completions'), {
       method: 'POST',
       headers: {
         authorization: `Bearer ${env.ECHO_CHAT_API_KEY}`,
         'content-type': 'application/json'
       },
-      body: JSON.stringify({
-        model: env.ECHO_CHAT_MODEL || DEFAULT_CHAT_MODEL,
-        messages,
-        temperature: 0.8
-      })
+      body: JSON.stringify(payload)
     });
   } catch (error) {
     if (error?.message === 'ECHO_PROVIDER_BASE_URL_INVALID') {

@@ -191,6 +191,7 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
 
     const chatPayload = JSON.parse(fetchStub.calls[1].options.body);
     assert.equal(chatPayload.model, 'gpt-5.4-mini');
+    assert.equal(chatPayload.reasoning_effort, undefined);
     assert.equal(fetchStub.calls[1].options.headers.authorization, 'Bearer chat-key');
     assert.match(chatPayload.messages[0].content, /文字里长出来的一点灵魂/);
     assert.match(chatPayload.messages[0].content, /不要在对话里自称 Echo/);
@@ -216,6 +217,36 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
     assert.ok(!usageCall.values.includes('我最近有点迷茫'));
     assert.ok(!usageCall.values.includes('我想，他大概会先听你慢慢说完。'));
     assert.ok(!usageCall.values.includes('你可以慢慢说。'));
+  });
+});
+
+test('POST /echo-chat sends configured chat reasoning effort when present', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const vectorize = createVectorize();
+  const fetchStub = createFetchStub();
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '我最近有点迷茫' })
+    }), {
+      VISITOR_DB: db,
+      ECHO_VECTORIZE: vectorize,
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_CHAT_MODEL: 'gpt-5.5',
+      ECHO_CHAT_REASONING_EFFORT: 'medium',
+      ECHO_EMBEDDING_API_KEY: 'embedding-key',
+      ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com',
+      ECHO_EMBEDDING_MODEL: 'text-embedding-3-small'
+    });
+
+    assert.equal(response.status, 200);
+
+    const chatPayload = JSON.parse(fetchStub.calls[1].options.body);
+    assert.equal(chatPayload.model, 'gpt-5.5');
+    assert.equal(chatPayload.reasoning_effort, 'medium');
   });
 });
 

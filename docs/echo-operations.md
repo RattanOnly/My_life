@@ -29,10 +29,13 @@ The Worker runtime needs chat, embedding, and admin authentication secrets or en
 - `ECHO_CHAT_API_KEY`
 - `ECHO_CHAT_BASE_URL`
 - `ECHO_CHAT_MODEL`
+- `ECHO_CHAT_REASONING_EFFORT`
 - `ECHO_EMBEDDING_API_KEY`
 - `ECHO_EMBEDDING_BASE_URL`
 - `ECHO_EMBEDDING_MODEL`
 - `ADMIN_PASSWORD`
+
+`ECHO_CHAT_REASONING_EFFORT` is optional and only accepts `low`, `medium`, or `high`. Use `medium` for the production Echo companion because it balances reply quality, latency, and cost for warm conversational responses.
 
 Do not commit secret values. Store real provider keys and `ADMIN_PASSWORD` in Cloudflare Worker secrets or production deployment configuration only.
 
