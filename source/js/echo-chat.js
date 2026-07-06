@@ -7,7 +7,7 @@
   const messages = root.querySelector('[data-echo-messages]');
   const status = root.querySelector('[data-echo-status]');
   const messageField = form ? form.querySelector('[name="message"]') : null;
-  const submitButton = form ? form.querySelector('button[type="submit"]') : null;
+  const submitButton = form ? form.querySelector('[data-echo-submit]') : null;
   const resolveEndpoint = (endpoint, fallback) => {
     const selectedEndpoint = endpoint || fallback;
     const pageLocation = typeof location === 'object' ? location : null;
@@ -113,7 +113,7 @@
   };
 
   const submitMessage = async event => {
-    event.preventDefault();
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
     if (!messageField) return;
 
     const text = messageField.value.trim();
@@ -180,13 +180,16 @@
   }
 
   if (form) {
-    form.addEventListener('submit', event => {
+    const handleSubmit = event => {
       submitMessage(event).catch(() => {
         setStage('idle');
         setDisabled(false);
         setStatus('这阵回声刚刚有点走神。可以再试一次。');
       });
-    });
+    };
+
+    form.addEventListener('submit', handleSubmit);
+    if (submitButton) submitButton.addEventListener('click', handleSubmit);
   }
 
   callCharacter(character, 'playEntrance');

@@ -38,7 +38,7 @@ decoding="async"
 <textarea id="echo-message" name="message" rows="4" maxlength="1000" required></textarea>
 <div class="echo-form-actions">
 <p class="echo-status" data-echo-status aria-live="polite"></p>
-<button type="submit" class="ui-button">发送</button>
+<button type="button" class="ui-button" data-echo-submit>发送</button>
 </div>
 </form>
 </div>

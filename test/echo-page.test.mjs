@@ -110,7 +110,7 @@ const createEchoRuntime = ({
   root.selectorMap.set('[data-echo-messages]', messages);
   root.selectorMap.set('[data-echo-status]', status);
   form.selectorMap.set('[name="message"]', textarea);
-  form.selectorMap.set('button[type="submit"]', button);
+  form.selectorMap.set('[data-echo-submit]', button);
 
   const statusQueue = [...statusResponses];
   const chatQueue = [...chatResponses];
@@ -194,6 +194,7 @@ test('Echo page renders a standalone AI conversation shell', async () => {
   assert.match(page, /data-echo-messages/);
   assert.match(page, /data-echo-form/);
   assert.match(page, /name="message"/);
+  assert.match(page, /<button[^>]*type="button"[^>]*data-echo-submit[^>]*>发送<\/button>/);
   assert.match(page, /aria-live="polite"/);
   assert.match(page, /\/js\/echo-character\.js/);
   assert.match(page, /\/js\/echo-chat\.js/);
@@ -481,6 +482,29 @@ test('Echo frontend submits messages with previous page-session history only', a
     runtime.characterCalls.filter(call => call.type === 'setState').map(call => call.stage),
     ['idle', 'listening', 'thinking', 'reply_ready', 'listening', 'thinking', 'reply_ready']
   );
+});
+
+test('Echo frontend sends messages from the inert send button', async () => {
+  const runtime = createEchoRuntime({
+    chatResponses: [{ reply: '按钮回答' }]
+  });
+
+  await runEchoScript(runtime);
+
+  runtime.textarea.value = '你好';
+  runtime.button.dispatch('click');
+  await settleAsyncWork();
+
+  const chatCall = runtime.calls[1];
+  assert.equal(chatCall.url, '/unit-chat');
+  assert.equal(chatCall.options.method, 'POST');
+  assert.deepEqual(JSON.parse(chatCall.options.body), {
+    message: '你好',
+    history: []
+  });
+  assert.equal(runtime.messages.children[0].textContent, '你好');
+  assert.equal(runtime.messages.children[1].textContent, '按钮回答');
+  assert.equal(runtime.root.dataset.echoStage, 'reply_ready');
 });
 
 test('Echo frontend does not insert idle character state when focusing after a successful reply', async () => {
