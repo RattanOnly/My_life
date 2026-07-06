@@ -192,9 +192,9 @@ test('Echo page renders a standalone AI conversation shell', async () => {
   ].join('|'), 'i');
   assert.doesNotMatch(page, legacyRuntimePattern);
   assert.match(page, /data-echo-messages/);
-  assert.match(page, /data-echo-form/);
+  assert.match(page, /<form[^>]*data-echo-form[^>]*onsubmit="return false"[^>]*>/);
   assert.match(page, /name="message"/);
-  assert.match(page, /<button[^>]*type="button"[^>]*data-echo-submit[^>]*>发送<\/button>/);
+  assert.match(page, /<button[^>]*type="submit"[^>]*data-echo-submit[^>]*>发送<\/button>/);
   assert.match(page, /aria-live="polite"/);
   assert.match(page, /\/js\/echo-character\.js/);
   assert.match(page, /\/js\/echo-chat\.js/);
@@ -484,7 +484,7 @@ test('Echo frontend submits messages with previous page-session history only', a
   );
 });
 
-test('Echo frontend sends messages from the inert send button', async () => {
+test('Echo frontend sends messages from the send button', async () => {
   const runtime = createEchoRuntime({
     chatResponses: [{ reply: '按钮回答' }]
   });
