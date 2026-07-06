@@ -326,6 +326,7 @@ test('Echo styles define hand-drawn layout and reduced motion behavior', async (
   assert.match(styles, /\.echo-chat-panel\s*\{(?:[^{}]|\n)*z-index:\s*1/);
   assert.match(styles, /\.echo-character-fallback/);
   assert.match(styles, /\.post-body\s+\.echo-character-fallback\s*\{[\s\S]*max-width:\s*none[\s\S]*max-height:\s*none[\s\S]*margin:\s*0/);
+  assert.match(styles, /\.post-body\s+\.echo-character-fallback\s*\{[\s\S]*visibility:\s*visible\s*!important/);
   const legacyRuntimePattern = new RegExp([
     'r' + 'ive',
     'echo-character-' + 'canvas'
