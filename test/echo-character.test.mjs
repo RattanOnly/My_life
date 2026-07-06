@@ -9,6 +9,7 @@ class FakeElement {
   constructor(name) {
     this.name = name;
     this.dataset = {};
+    this.style = {};
     this.selectorMap = new Map();
   }
 
@@ -54,6 +55,17 @@ test('initializes the SVG character shell and keeps state on the fallback', asyn
   adapter.setState('unknown-state');
   assert.equal(shell.dataset.echoCharacterState, 'idle');
   assert.equal(fallback.dataset.echoCharacterState, 'idle');
+});
+
+test('reveals the SVG fallback when theme image handling hides post images inline', async () => {
+  const EchoCharacter = await loadCharacterApi();
+  const { root, fallback } = createRoot();
+  fallback.style.visibility = 'hidden';
+
+  EchoCharacter.create(root);
+
+  assert.equal(fallback.style.visibility, 'visible');
+  assert.equal(fallback.dataset.echoCharacterManaged, 'true');
 });
 
 test('marks entrance unless reduced motion is preferred', async () => {

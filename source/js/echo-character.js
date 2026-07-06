@@ -33,6 +33,16 @@
     }
   }
 
+  function revealFallback(fallback) {
+    if (!fallback) {
+      return;
+    }
+    fallback.dataset.echoCharacterManaged = 'true';
+    if (fallback.style) {
+      fallback.style.visibility = 'visible';
+    }
+  }
+
   function setReady(shell, value) {
     if (shell) {
       shell.dataset.echoCharacterReady = value;
@@ -63,6 +73,7 @@
       var destroyed = false;
       var currentState = 'idle';
 
+      revealFallback(fallback);
       setReady(shell, 'svg');
       setShellState(shell, fallback, currentState);
 
