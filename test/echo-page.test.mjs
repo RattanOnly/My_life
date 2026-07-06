@@ -80,7 +80,8 @@ const createEchoRuntime = ({
   statusResponses = [{ enabled: true }],
   chatResponses = [],
   location,
-  characterFactory
+  characterFactory,
+  rootInitiallyPresent = true
 } = {}) => {
   const root = new FakeElement('root');
   const form = new FakeElement('form');
@@ -90,6 +91,8 @@ const createEchoRuntime = ({
   const button = new FakeElement('button');
   const calls = [];
   const characterCalls = [];
+  const windowListeners = new Map();
+  let activeRoot = rootInitiallyPresent ? root : null;
   const characterAdapter = {
     ready: Promise.resolve(true),
     playEntrance() {
@@ -136,9 +139,14 @@ const createEchoRuntime = ({
       return characterAdapter;
     });
   const context = createContext({
+    addEventListener(type, handler) {
+      const listeners = windowListeners.get(type) || [];
+      listeners.push(handler);
+      windowListeners.set(type, listeners);
+    },
     document: {
       createElement: tagName => new FakeElement(tagName),
-      getElementById: id => (id === 'echo-page' ? root : null)
+      getElementById: id => (id === 'echo-page' ? activeRoot : null)
     },
     EchoCharacter: {
       create(targetRoot) {
@@ -150,10 +158,16 @@ const createEchoRuntime = ({
   });
 
   return {
+    attachRoot() {
+      activeRoot = root;
+    },
     button,
     calls,
     characterCalls,
     context,
+    dispatchWindow(type) {
+      for (const handler of windowListeners.get(type) || []) handler();
+    },
     form,
     messages,
     root,
@@ -196,9 +210,16 @@ test('Echo page renders a standalone AI conversation shell', async () => {
   assert.match(page, /name="message"/);
   assert.match(page, /<button[^>]*type="submit"[^>]*data-echo-submit[^>]*>发送<\/button>/);
   assert.match(page, /aria-live="polite"/);
-  assert.match(page, /\/js\/echo-character\.js/);
-  assert.match(page, /\/js\/echo-chat\.js/);
+  assert.doesNotMatch(page, /\/js\/echo-character\.js/);
+  assert.doesNotMatch(page, /\/js\/echo-chat\.js/);
   assert.doesNotMatch(page, /class="echo-boy"/);
+});
+
+test('Echo scripts load globally and are not dependent on PJAX-inserted page scripts', async () => {
+  const footer = await readFile(new URL('../source/_data/footer.swig', import.meta.url), 'utf8');
+
+  assert.match(footer, /\/js\/echo-character\.js/);
+  assert.match(footer, /\/js\/echo-chat\.js\?v=20260706-pjax-init/);
 });
 
 test('NexT page template can hide page headers for focused custom pages', async () => {
@@ -361,6 +382,38 @@ test('Echo frontend loads public status without credentials', async () => {
     { type: 'playEntrance' },
     { type: 'setState', stage: 'idle' }
   ]);
+});
+
+test('Echo frontend initializes after PJAX navigation when the global script loaded earlier', async () => {
+  const runtime = createEchoRuntime({
+    chatResponses: [{ reply: 'PJAX 回声' }],
+    rootInitiallyPresent: false
+  });
+
+  await runEchoScript(runtime);
+
+  assert.equal(runtime.root.dataset.initialized, undefined);
+  assert.equal(runtime.calls.length, 0);
+
+  runtime.attachRoot();
+  runtime.dispatchWindow('pjax:success');
+  await settleAsyncWork();
+
+  assert.equal(runtime.root.dataset.initialized, 'true');
+  assert.equal(runtime.calls[0].url, '/unit-status');
+
+  runtime.textarea.value = '你好';
+  runtime.button.dispatch('click');
+  await settleAsyncWork();
+
+  const chatCall = runtime.calls[1];
+  assert.equal(chatCall.url, '/unit-chat');
+  assert.deepEqual(JSON.parse(chatCall.options.body), {
+    message: '你好',
+    history: []
+  });
+  assert.equal(runtime.messages.children[0].textContent, '你好');
+  assert.equal(runtime.messages.children[1].textContent, 'PJAX 回声');
 });
 
 test('Echo frontend points localhost static preview to the local Worker', async () => {

@@ -1,4 +1,5 @@
 (() => {
+  const initEchoChat = () => {
   const root = document.getElementById('echo-page');
   if (!root || root.dataset.initialized === 'true') return;
   root.dataset.initialized = 'true';
@@ -198,4 +199,8 @@
   loadStatus().catch(() => {
     setStatus('');
   });
+  };
+
+  initEchoChat();
+  if (globalThis.addEventListener) globalThis.addEventListener('pjax:success', initEchoChat);
 })();

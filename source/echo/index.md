@@ -43,6 +43,3 @@ decoding="async"
 </form>
 </div>
 </section>
-
-<script src="/js/echo-character.js"></script>
-<script src="/js/echo-chat.js"></script>
