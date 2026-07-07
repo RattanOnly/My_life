@@ -12,6 +12,7 @@ class="echo-page"
 data-echo-chat-endpoint="/echo-chat"
 data-echo-status-endpoint="/echo-status"
 data-echo-stage="idle"
+data-page-bgm='[{"url":"https://assets.lovezvv.com/blog/music/blog-echo-echo.mp3"}]'
 >
 <div
 class="echo-character"

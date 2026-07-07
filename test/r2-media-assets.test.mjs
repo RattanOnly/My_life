@@ -23,11 +23,12 @@ test('post images are served from the R2 blog image path', async () => {
     }
   }
 
-  assert.equal(r2ImageReferences, 31);
+  assert.equal(r2ImageReferences, 37);
 });
 
 test('article and site music are served from the R2 blog music path', async () => {
   const footer = await readFile(new URL('../source/_data/footer.swig', import.meta.url), 'utf8');
+  const echoPage = await readFile(new URL('../source/echo/index.md', import.meta.url), 'utf8');
   const files = await readdir(new URL('../source/_posts/', import.meta.url));
   const posts = await Promise.all(
     files
@@ -41,4 +42,6 @@ test('article and site music are served from the R2 blog music path', async () =
   assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-site-global-bgm\\.mp3`));
   assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-blue-night-blue_night\\.mp3`));
   assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-me-me\\.mp3`));
+  assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-now-and-before-now-and-before\\.mp3`));
+  assert.match(echoPage, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-echo-echo\\.mp3`));
 });

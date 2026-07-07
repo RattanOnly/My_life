@@ -196,6 +196,15 @@
         }
       }
     }
+    const pageBgmHolder = document.querySelector('[data-page-bgm]');
+    const pageBgmRaw = pageBgmHolder && pageBgmHolder.dataset ? pageBgmHolder.dataset.pageBgm : '';
+    if (pageBgmRaw) {
+      try {
+        return JSON.parse(pageBgmRaw);
+      } catch (error) {
+        console.warn('页面BGM配置解析失败', error);
+      }
+    }
     return typeof window.__ARTICLE_BGM !== 'undefined' && window.__ARTICLE_BGM !== null
       ? window.__ARTICLE_BGM
       : null;

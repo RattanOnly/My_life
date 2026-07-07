@@ -28,6 +28,7 @@ test('BGM manager defers audio sources until playback is attempted', async () =>
 
   assert.match(script, /preload\s*=\s*'none'/);
   assert.match(script, /dataset\.src/);
+  assert.match(script, /dataset\.pageBgm/);
   assert.match(script, /ensureSource/);
   assert.match(script, /attachGestureTriggers/);
   assert.match(script, /pjax:send/);
