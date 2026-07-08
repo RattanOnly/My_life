@@ -275,7 +275,7 @@ function buildNdjson(vectors) {
 
 function buildVectorizeFormData(ndjson) {
   const formData = new FormData();
-  formData.append('body', new Blob([ndjson], { type: 'application/x-ndjson' }), 'vectors.ndjson');
+  formData.append('vectors', new Blob([ndjson], { type: 'application/x-ndjson' }), 'vectors.ndjson');
   return formData;
 }
 

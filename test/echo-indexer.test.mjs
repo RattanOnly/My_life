@@ -267,7 +267,7 @@ test('createEmbedding maps rejected fetch calls to provider network errors', asy
   );
 });
 
-test('Vectorize upsert uses v2 URL, POST FormData body field, and NDJSON vectors', async () => {
+test('Vectorize upsert uses v2 URL, POST FormData vectors field, and NDJSON vectors', async () => {
   const fetchStub = createFetchStub(() => jsonResponse({ success: true, count: 1 }));
   const vector = {
     id: 'public-0',
@@ -292,7 +292,7 @@ test('Vectorize upsert uses v2 URL, POST FormData body field, and NDJSON vectors
   assert.equal('content-type' in fetchStub.calls[0].options.headers, false);
   assert.ok(fetchStub.calls[0].options.body instanceof FormData);
 
-  const file = fetchStub.calls[0].options.body.get('body');
+  const file = fetchStub.calls[0].options.body.get('vectors');
   assert.ok(file instanceof Blob);
   assert.equal(file.name, 'vectors.ndjson');
   assert.equal(file.type, 'application/x-ndjson');
