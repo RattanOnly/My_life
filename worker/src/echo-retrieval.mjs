@@ -69,7 +69,8 @@ export async function createEmbedding(text, env) {
       },
       body: JSON.stringify({
         model: env.ECHO_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL,
-        input: text
+        input: text,
+        encoding_format: 'float'
       })
     });
   } catch (error) {

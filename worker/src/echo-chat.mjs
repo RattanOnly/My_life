@@ -312,13 +312,24 @@ export async function handleEchoChat(request, env, requireVisitorDb) {
 
   const history = readHistory(body.history);
   let retrievedCount = 0;
+  let retrievalErrorCode = null;
 
   try {
     const turn = classifyEchoTurn(message);
     const retrievalSkipped = turn.retrievalSkipped;
-    const { fragments, embeddingTokens } = retrievalSkipped
-      ? { fragments: [], embeddingTokens: 0 }
-      : await retrieveEchoFragments(message, env);
+    let fragments = [];
+    let embeddingTokens = 0;
+
+    if (!retrievalSkipped) {
+      try {
+        const retrievalResult = await retrieveEchoFragments(message, env);
+        fragments = retrievalResult.fragments;
+        embeddingTokens = retrievalResult.embeddingTokens;
+      } catch (error) {
+        retrievalErrorCode = safeEchoErrorCode(error);
+      }
+    }
+
     retrievedCount = fragments.length;
     const result = await callChatProvider({
       message,
@@ -334,7 +345,8 @@ export async function handleEchoChat(request, env, requireVisitorDb) {
       status: 'success',
       promptTokens: result.promptTokens + embeddingTokens,
       completionTokens: result.completionTokens,
-      retrievedCount
+      retrievedCount,
+      errorCode: retrievalErrorCode
     });
 
     return json({

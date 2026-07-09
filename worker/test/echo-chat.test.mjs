@@ -179,7 +179,8 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
     const embeddingPayload = JSON.parse(fetchStub.calls[0].options.body);
     assert.deepEqual(embeddingPayload, {
       model: 'text-embedding-3-small',
-      input: '我最近有点迷茫'
+      input: '我最近有点迷茫',
+      encoding_format: 'float'
     });
     assert.equal(fetchStub.calls[0].options.headers.authorization, 'Bearer embedding-key');
 
@@ -464,7 +465,7 @@ test('POST /echo-chat still returns provider reply when usage recording fails', 
   });
 });
 
-test('POST /echo-chat rejects empty and invalid embedding arrays with safe error code', async () => {
+test('POST /echo-chat falls back to chat when embedding response is invalid', async () => {
   for (const embedding of [[], [0.1, null, 0.3]]) {
     const db = createEchoDb([{ setting_value: '1' }]);
     const fetchStub = createFetchStub({
@@ -490,9 +491,25 @@ test('POST /echo-chat rejects empty and invalid embedding arrays with safe error
         ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
       });
 
-      assert.equal(response.status, 502);
-      assert.equal(db.calls.at(-1).values.at(-1), 'ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE');
-      assert.equal(fetchStub.calls.length, 1);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        reply: '我想，他大概会先听你慢慢说完。',
+        references: []
+      });
+      assert.equal(fetchStub.calls.length, 2);
+      assert.match(fetchStub.calls[0].url, /\/embeddings$/);
+      assert.match(fetchStub.calls[1].url, /\/chat\/completions$/);
+
+      const chatPayload = JSON.parse(fetchStub.calls[1].options.body);
+      assert.match(chatPayload.messages[0].content, /当前没有必须显性使用的文章片段/);
+      assert.match(chatPayload.messages[0].content, /不要说明检索失败/);
+      assert.deepEqual(db.calls.at(-1).values.slice(1), [
+        'success',
+        32,
+        18,
+        0,
+        'ECHO_EMBEDDING_PROVIDER_INVALID_RESPONSE'
+      ]);
     });
   }
 });
@@ -569,7 +586,7 @@ test('POST /echo-chat can reply without Vectorize by using empty fragments', asy
   });
 });
 
-test('POST /echo-chat records a safe code when provider fetch rejects', async () => {
+test('POST /echo-chat falls back to chat and records a safe code when provider fetch rejects', async () => {
   const db = createEchoDb([{ setting_value: '1' }]);
   const fetchStub = createFetchStub({
     embeddingHandler() {
@@ -591,8 +608,21 @@ test('POST /echo-chat records a safe code when provider fetch rejects', async ()
       ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com'
     });
 
-    assert.equal(response.status, 502);
-    assert.equal(db.calls.at(-1).values.at(-1), 'ECHO_PROVIDER_NETWORK_ERROR');
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      reply: '我想，他大概会先听你慢慢说完。',
+      references: []
+    });
+    assert.equal(fetchStub.calls.length, 2);
+    assert.match(fetchStub.calls[0].url, /\/embeddings$/);
+    assert.match(fetchStub.calls[1].url, /\/chat\/completions$/);
+    assert.deepEqual(db.calls.at(-1).values.slice(1), [
+      'success',
+      32,
+      18,
+      0,
+      'ECHO_PROVIDER_NETWORK_ERROR'
+    ]);
     assert.ok(!db.calls.at(-1).values.some(value => String(value).includes('我最近有点迷茫')));
   });
 });
