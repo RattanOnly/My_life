@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "./tools/hexo-env.sh clean && ./tools/hexo-env.sh generate",
+    "build": "TZ=Asia/Shanghai ./tools/hexo-env.sh clean && TZ=Asia/Shanghai ./tools/hexo-env.sh generate",
     "clean": "./tools/hexo-env.sh clean",
     "echo:index": "node tools/echo/build-index.mjs",
     "test": "node --test",

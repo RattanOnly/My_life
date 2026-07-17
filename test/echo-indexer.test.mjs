@@ -307,7 +307,7 @@ test('package scripts run the Echo indexer after static builds without requiring
 
   assert.equal(
     packageJson.scripts.build,
-    './tools/hexo-env.sh clean && ./tools/hexo-env.sh generate'
+    'TZ=Asia/Shanghai ./tools/hexo-env.sh clean && TZ=Asia/Shanghai ./tools/hexo-env.sh generate'
   );
   assert.equal(packageJson.scripts['echo:index'], 'node tools/echo/build-index.mjs');
   assert.equal(packageJson.scripts.postbuild, 'node tools/echo/build-index.mjs');
