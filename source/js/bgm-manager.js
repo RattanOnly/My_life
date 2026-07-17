@@ -269,10 +269,14 @@
   class BgmManager {
     constructor(track) {
       this.themeTrack = track;
+      this.themeVolume = track.el.volume;
       this.articleTrack = null;
       this.articleConfig = null;
       this.activeArticleId = null;
       this.lastConfigKey = null;
+      this.isDucked = false;
+      this.duckVolume = 0.5;
+      this.volumeAnimationFrame = null;
       this.userUnlocked = !track.el.paused;
       this.applyQueued = false;
       this.attachGestureTriggers();
@@ -332,7 +336,7 @@
         return true;
       }
       try {
-        await this.themeTrack.play();
+        await this.themeTrack.play({ volume: this.effectiveVolume(this.themeVolume) });
         this.userUnlocked = true;
         sessionStorage.setItem(UNLOCK_KEY, '1');
         return true;
@@ -356,7 +360,10 @@
       this.themeTrack.pause();
 
       try {
-        const ok = await this.articleTrack.play({ loopList: cfg.loopList, volume: cfg.volume });
+        const ok = await this.articleTrack.play({
+          loopList: cfg.loopList,
+          volume: this.effectiveVolume(cfg.volume)
+        });
         if (!ok) throw new Error('文章BGM播放失败');
         this.userUnlocked = true;
         sessionStorage.setItem(UNLOCK_KEY, '1');
@@ -384,6 +391,64 @@
       if (resumeTheme) {
         this.playTheme({ restart: true });
       }
+    }
+
+    effectiveVolume(baseVolume) {
+      const base = clampVolume(baseVolume);
+      return this.isDucked ? Math.min(base, this.duckVolume) : base;
+    }
+
+    activeTrack() {
+      if (this.articleTrack && this.articleTrack.isPlaying()) return this.articleTrack;
+      if (this.themeTrack.isPlaying()) return this.themeTrack;
+      return this.articleTrack || this.themeTrack;
+    }
+
+    baseVolumeFor(track) {
+      if (track === this.articleTrack && this.articleConfig) {
+        return this.articleConfig.volume;
+      }
+      return this.themeVolume;
+    }
+
+    fadeTrackVolume(track, targetVolume, duration = 320) {
+      if (!track || !track.el) return;
+      const el = track.el;
+      const target = clampVolume(targetVolume);
+      const start = el.volume;
+      if (this.volumeAnimationFrame) {
+        cancelAnimationFrame(this.volumeAnimationFrame);
+        this.volumeAnimationFrame = null;
+      }
+      if (duration <= 0 || Math.abs(start - target) < 0.01) {
+        el.volume = target;
+        return;
+      }
+      const startedAt = performance.now();
+      const step = now => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.volume = clampVolume(start + (target - start) * eased);
+        if (progress < 1) {
+          this.volumeAnimationFrame = requestAnimationFrame(step);
+        } else {
+          this.volumeAnimationFrame = null;
+        }
+      };
+      this.volumeAnimationFrame = requestAnimationFrame(step);
+    }
+
+    duck(volume = 0.5) {
+      this.isDucked = true;
+      this.duckVolume = clampVolume(volume);
+      const track = this.activeTrack();
+      this.fadeTrackVolume(track, this.effectiveVolume(this.baseVolumeFor(track)));
+    }
+
+    restoreVolume() {
+      this.isDucked = false;
+      const track = this.activeTrack();
+      this.fadeTrackVolume(track, this.baseVolumeFor(track));
     }
 
     async applyPageConfig() {
@@ -440,5 +505,5 @@
     }
   }
 
-  new BgmManager(themeTrack);
+  window.__siteBgmManager = new BgmManager(themeTrack);
 })();

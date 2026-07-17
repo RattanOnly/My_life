@@ -23,7 +23,7 @@ test('post images are served from the R2 blog image path', async () => {
     }
   }
 
-  assert.equal(r2ImageReferences, 37);
+  assert.equal(r2ImageReferences, 42);
 });
 
 test('article and site music are served from the R2 blog music path', async () => {
@@ -43,5 +43,7 @@ test('article and site music are served from the R2 blog music path', async () =
   assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-blue-night-blue_night\\.mp3`));
   assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-me-me\\.mp3`));
   assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-now-and-before-now-and-before\\.mp3`));
+  assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-close-your-eyes-and-breathe-breath\\.mp3`));
   assert.match(echoPage, new RegExp(`${R2_ASSET_ORIGIN}/blog/music/blog-echo-echo\\.mp3`));
+  assert.match(combined, new RegExp(`${R2_ASSET_ORIGIN}/blog/audio/blog-close-your-eyes-and-breathe-eng-one\\.m4a`));
 });

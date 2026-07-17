@@ -21,3 +21,4 @@
 <script src="/js/echo-chat.js?v=20260706-pjax-init"></script>
 <audio id="site-bgm" data-src="https://assets.lovezvv.com/blog/music/blog-site-global-bgm.mp3" preload="none" loop style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"></audio>
 <script src="/js/bgm-manager.js"></script>
+<script src="/js/voice-note-player.js"></script>

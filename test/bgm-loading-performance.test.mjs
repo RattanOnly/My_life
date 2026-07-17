@@ -19,8 +19,23 @@ test('site BGM is lazy loaded from the external BGM manager script', async () =>
   assert.match(footer, /preload="none"/);
   assert.doesNotMatch(footer, /id="site-bgm"[^>]*\ssrc=/);
   assert.match(footer, /\/js\/bgm-manager\.js/);
+  assert.match(footer, /\/js\/voice-note-player\.js/);
   assert.doesNotMatch(footer, /class BgmManager/);
   assert.doesNotMatch(footer, /new Audio\(/);
+});
+
+test('voice note playback ducks and restores the active BGM', async () => {
+  const template = await readFile(new URL('../source/_data/post-body-end.swig', import.meta.url), 'utf8');
+  const manager = await readFile(new URL('../source/js/bgm-manager.js', import.meta.url), 'utf8');
+  const player = await readFile(new URL('../source/js/voice-note-player.js', import.meta.url), 'utf8');
+
+  assert.match(template, /data-voice-note/);
+  assert.match(template, /data-bgm-duck-volume="0\.5"/);
+  assert.match(template, /preload="metadata"/);
+  assert.match(manager, /duck\(volume = 0\.5\)/);
+  assert.match(manager, /restoreVolume\(\)/);
+  assert.match(player, /getManager\(\)\?\.duck\(duckVolume\)/);
+  assert.match(player, /getManager\(\)\?\.restoreVolume\(\)/);
 });
 
 test('BGM manager defers audio sources until playback is attempted', async () => {

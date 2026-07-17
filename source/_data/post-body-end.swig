@@ -8,6 +8,26 @@
 </script>
 {% endif %}
 
+{% if page.layout === 'post' and page.voiceNote and page.voiceNote.url %}
+<section class="article-voice-note" aria-labelledby="article-voice-note-title">
+  <div class="article-voice-note-copy">
+    <h3 id="article-voice-note-title">{{ page.voiceNote.title or '听一段独白' }}</h3>
+    {% if page.voiceNote.description %}
+    <p>{{ page.voiceNote.description }}</p>
+    {% endif %}
+  </div>
+  <audio
+    class="article-voice-note-player"
+    controls
+    preload="metadata"
+    data-voice-note
+    data-bgm-duck-volume="0.5">
+    <source src="{{ page.voiceNote.url }}" type="audio/mp4">
+    你的浏览器暂时无法播放这段音频。
+  </audio>
+</section>
+{% endif %}
+
 {% if page.layout === 'post' %}
 <section
   id="article-comments"
