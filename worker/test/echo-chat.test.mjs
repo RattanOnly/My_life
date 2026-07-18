@@ -312,6 +312,52 @@ test('POST /echo-chat sends configured chat reasoning effort when present', asyn
   });
 });
 
+test('POST /echo-chat retries gpt-5.5 medium when the configured model is unavailable', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const fetchStub = createFetchStub({
+    chatHandler(url, options) {
+      const payload = JSON.parse(options.body);
+      if (payload.model === 'gpt-5.6-sol') {
+        return jsonResponse({ error: { message: 'model unavailable' } }, { status: 404 });
+      }
+
+      return jsonResponse({
+        choices: [{ message: { content: '我还在这里。' } }],
+        usage: { prompt_tokens: 20, completion_tokens: 6 }
+      });
+    }
+  });
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '你还在吗？' })
+    }), {
+      VISITOR_DB: db,
+      AI: createWorkersAi(),
+      ECHO_VECTORIZE: createVectorize(),
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_CHAT_MODEL: 'gpt-5.6-sol',
+      ECHO_CHAT_REASONING_EFFORT: 'medium'
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      reply: '我还在这里。',
+      references: [{
+        title: '一个男孩写下了一篇博客',
+        path: '/2026/07/04/a-boy-wrote-a-blog/'
+      }]
+    });
+
+    const chatPayloads = fetchStub.calls.map(call => JSON.parse(call.options.body));
+    assert.deepEqual(chatPayloads.map(payload => payload.model), ['gpt-5.6-sol', 'gpt-5.5']);
+    assert.deepEqual(chatPayloads.map(payload => payload.reasoning_effort), ['medium', 'medium']);
+  });
+});
+
 test('POST /echo-chat treats greetings as casual conversation without retrieval-first article stuffing', async () => {
   const db = createEchoDb([{ setting_value: '1' }]);
   const vectorize = createVectorize();

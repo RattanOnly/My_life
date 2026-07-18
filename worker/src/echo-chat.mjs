@@ -13,6 +13,7 @@ const MAX_ECHO_HISTORY_TEXT_LENGTH = 500;
 const DEFAULT_CHAT_MODEL = 'gpt-5.5';
 const DEFAULT_REASONING_EFFORT = 'medium';
 const ALLOWED_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
+const FALLBACK_CHAT_HTTP_STATUSES = new Set([400, 404, 422, 500, 502, 503, 504]);
 const OWNER_PUBLIC_PROFILE = [
   '站长公开资料：',
   '这个网站由赵威写下和维护。亲近的人也可以叫他威威。',
@@ -160,6 +161,21 @@ function readReasoningEffort(value) {
   return ALLOWED_REASONING_EFFORTS.has(effort) ? effort : '';
 }
 
+function chatProviderError(code, status = 0) {
+  const error = new Error(code);
+  error.status = status;
+  return error;
+}
+
+function shouldTryFallbackModel(error) {
+  if (error?.message === 'ECHO_CHAT_PROVIDER_HTTP_ERROR') {
+    return FALLBACK_CHAT_HTTP_STATUSES.has(error.status);
+  }
+
+  return error?.message === 'ECHO_CHAT_PROVIDER_INVALID_RESPONSE'
+    || error?.message === 'ECHO_REPLY_EMPTY';
+}
+
 function buildSystemPrompt(fragments, { retrievalSkipped = false, identityTurn = false, greetingTurn = false } = {}) {
   const sourceText = fragments.length
     ? fragments.map((fragment, index) => [
@@ -224,61 +240,70 @@ async function callChatProvider({
     { role: 'user', content: message }
   ];
 
-  let response;
-  try {
-    const payload = {
-      model: env.ECHO_CHAT_MODEL || DEFAULT_CHAT_MODEL,
-      messages,
-      temperature: 0.8
-    };
-    payload.reasoning_effort = readReasoningEffort(env.ECHO_CHAT_REASONING_EFFORT)
-      || DEFAULT_REASONING_EFFORT;
+  const endpoint = buildProviderUrl(env.ECHO_CHAT_BASE_URL, 'chat/completions');
+  const primaryModel = cleanText(env.ECHO_CHAT_MODEL, 100) || DEFAULT_CHAT_MODEL;
+  const models = primaryModel === DEFAULT_CHAT_MODEL
+    ? [primaryModel]
+    : [primaryModel, DEFAULT_CHAT_MODEL];
+  const reasoningEffort = readReasoningEffort(env.ECHO_CHAT_REASONING_EFFORT)
+    || DEFAULT_REASONING_EFFORT;
 
-    response = await fetch(buildProviderUrl(env.ECHO_CHAT_BASE_URL, 'chat/completions'), {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${env.ECHO_CHAT_API_KEY}`,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-  } catch (error) {
-    if (error?.message === 'ECHO_PROVIDER_BASE_URL_INVALID') {
+  for (let index = 0; index < models.length; index += 1) {
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${env.ECHO_CHAT_API_KEY}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: models[index],
+          messages,
+          temperature: 0.8,
+          reasoning_effort: reasoningEffort
+        })
+      });
+    } catch {
+      throw new Error('ECHO_PROVIDER_NETWORK_ERROR');
+    }
+
+    let body;
+    try {
+      body = await response.json();
+    } catch {
+      const error = response.ok
+        ? chatProviderError('ECHO_CHAT_PROVIDER_INVALID_RESPONSE')
+        : chatProviderError('ECHO_CHAT_PROVIDER_HTTP_ERROR', response.status);
+      if (index < models.length - 1 && shouldTryFallbackModel(error)) continue;
       throw error;
     }
 
-    throw new Error('ECHO_PROVIDER_NETWORK_ERROR');
-  }
-
-  let body;
-  try {
-    body = await response.json();
-  } catch {
+    let error;
     if (!response.ok) {
-      throw new Error('ECHO_CHAT_PROVIDER_HTTP_ERROR');
+      error = chatProviderError('ECHO_CHAT_PROVIDER_HTTP_ERROR', response.status);
+    } else if (!body || typeof body !== 'object') {
+      error = chatProviderError('ECHO_CHAT_PROVIDER_INVALID_RESPONSE');
     }
 
-    throw new Error('ECHO_CHAT_PROVIDER_INVALID_RESPONSE');
+    const reply = cleanText(body?.choices?.[0]?.message?.content, 3000);
+    if (!error && !reply) {
+      error = chatProviderError('ECHO_REPLY_EMPTY');
+    }
+
+    if (error) {
+      if (index < models.length - 1 && shouldTryFallbackModel(error)) continue;
+      throw error;
+    }
+
+    return {
+      reply,
+      promptTokens: Number(body.usage?.prompt_tokens || 0),
+      completionTokens: Number(body.usage?.completion_tokens || 0)
+    };
   }
 
-  if (!response.ok) {
-    throw new Error('ECHO_CHAT_PROVIDER_HTTP_ERROR');
-  }
-
-  if (!body || typeof body !== 'object') {
-    throw new Error('ECHO_CHAT_PROVIDER_INVALID_RESPONSE');
-  }
-
-  const reply = cleanText(body.choices?.[0]?.message?.content, 3000);
-  if (!reply) {
-    throw new Error('ECHO_REPLY_EMPTY');
-  }
-
-  return {
-    reply,
-    promptTokens: Number(body.usage?.prompt_tokens || 0),
-    completionTokens: Number(body.usage?.completion_tokens || 0)
-  };
+  throw new Error('ECHO_CHAT_PROVIDER_HTTP_ERROR');
 }
 
 async function safeRecordEchoUsage(db, payload) {
