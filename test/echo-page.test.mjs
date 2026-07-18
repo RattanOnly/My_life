@@ -12,10 +12,33 @@ class FakeElement {
     this.dataset = {};
     this.disabled = false;
     this.focused = false;
+    this._innerHTML = '';
+    this._textContent = '';
     this.listeners = new Map();
     this.selectorMap = new Map();
-    this.textContent = '';
     this.value = '';
+  }
+
+  get innerHTML() {
+    return this._innerHTML;
+  }
+
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    this._textContent = this._innerHTML
+      .replace(/<[^>]*>/g, '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+  }
+
+  get textContent() {
+    return this._textContent;
+  }
+
+  set textContent(value) {
+    this._textContent = String(value);
+    this._innerHTML = '';
   }
 
   addEventListener(type, handler) {
@@ -80,6 +103,8 @@ const createEchoRuntime = ({
   statusResponses = [{ enabled: true }],
   chatResponses = [],
   location,
+  markdownit,
+  DOMPurify,
   characterFactory,
   rootInitiallyPresent = true
 } = {}) => {
@@ -153,6 +178,8 @@ const createEchoRuntime = ({
         return createCharacter(targetRoot);
       }
     },
+    markdownit,
+    DOMPurify,
     fetch,
     location
   });
@@ -218,8 +245,12 @@ test('Echo page renders a standalone AI conversation shell', async () => {
 test('Echo scripts load globally and are not dependent on PJAX-inserted page scripts', async () => {
   const footer = await readFile(new URL('../source/_data/footer.swig', import.meta.url), 'utf8');
 
+  assert.match(footer, /\/vendor\/markdown-it\.min\.js/);
+  assert.match(footer, /\/vendor\/purify\.min\.js\?v=3\.4\.11/);
   assert.match(footer, /\/js\/echo-character\.js/);
-  assert.match(footer, /\/js\/echo-chat\.js\?v=20260706-pjax-init/);
+  assert.match(footer, /\/js\/echo-chat\.js\?v=20260709-markdown-render/);
+  assert.ok(footer.indexOf('/vendor/markdown-it.min.js') < footer.indexOf('/js/echo-chat.js'));
+  assert.ok(footer.indexOf('/vendor/purify.min.js') < footer.indexOf('/js/echo-chat.js'));
 });
 
 test('NexT page template can hide page headers for focused custom pages', async () => {
@@ -335,6 +366,8 @@ test('Echo styles define hand-drawn layout and reduced motion behavior', async (
   assert.match(styles, /\.echo-page\[data-echo-stage='thinking'\]\s+\.echo-character-fallback/);
   assert.match(styles, /\.echo-belt/);
   assert.match(styles, /\.echo-message-thinking/);
+  assert.match(styles, /\.echo-message-assistant p/);
+  assert.match(styles, /\.echo-message-assistant a/);
   assert.match(styles, /@keyframes echo-character-breathe/);
   assert.match(styles, /@keyframes echo-character-think/);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
@@ -367,6 +400,74 @@ test('Echo frontend posts only active page-session messages and handles disabled
   assert.doesNotMatch(script, /idle_sit|walk/);
   assert.match(script, /credentials:\s*'omit'/);
   assert.doesNotMatch(script, /localStorage|sessionStorage|indexedDB/);
+});
+
+test('Echo frontend renders assistant Markdown through a sanitizer when available', async () => {
+  let markdownOptions;
+  let disabledRules;
+  let renderedMarkdown;
+  const sanitizeCalls = [];
+  const runtime = createEchoRuntime({
+    chatResponses: [{ reply: '**《现在和从前》**\n\n<script>alert(1)</script>[坏链接](javascript:alert(1))' }],
+    markdownit(options) {
+      markdownOptions = options;
+
+      return {
+        disable(rules) {
+          disabledRules = rules;
+          return this;
+        },
+        render(markdown) {
+          renderedMarkdown = markdown;
+          return '<p><strong>《现在和从前》</strong></p><script>alert(1)</script><a href="javascript:alert(1)">坏链接</a>';
+        }
+      };
+    },
+    DOMPurify: {
+      sanitize(html, config) {
+        sanitizeCalls.push({ html, config });
+        return '<p><strong>《现在和从前》</strong></p><p>坏链接</p>';
+      }
+    }
+  });
+
+  await runEchoScript(runtime);
+
+  runtime.textarea.value = '讲讲这篇文章';
+  runtime.form.dispatch('submit');
+  await settleAsyncWork();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(markdownOptions)), {
+    html: false,
+    breaks: true,
+    linkify: true,
+    typographer: false
+  });
+  assert.deepEqual(Array.from(disabledRules), ['image']);
+  assert.match(renderedMarkdown, /\*\*《现在和从前》\*\*/);
+  assert.equal(sanitizeCalls.length, 1);
+  assert.match(sanitizeCalls[0].html, /<script>/);
+  assert.deepEqual(Array.from(sanitizeCalls[0].config.ALLOWED_TAGS), ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'blockquote', 'code', 'a']);
+  assert.deepEqual(Array.from(sanitizeCalls[0].config.ALLOWED_ATTR), ['href', 'target', 'rel']);
+  assert.equal(runtime.messages.children[0].textContent, '讲讲这篇文章');
+  assert.equal(runtime.messages.children[0].innerHTML, '');
+  assert.equal(runtime.messages.children[1].innerHTML, '<p><strong>《现在和从前》</strong></p><p>坏链接</p>');
+  assert.equal(runtime.messages.children[1].textContent, '《现在和从前》坏链接');
+});
+
+test('Echo frontend falls back to textContent when Markdown rendering libraries are missing', async () => {
+  const runtime = createEchoRuntime({
+    chatResponses: [{ reply: '**不会变成 HTML** <script>alert(1)</script>' }]
+  });
+
+  await runEchoScript(runtime);
+
+  runtime.textarea.value = '普通回声';
+  runtime.form.dispatch('submit');
+  await settleAsyncWork();
+
+  assert.equal(runtime.messages.children[1].textContent, '**不会变成 HTML** <script>alert(1)</script>');
+  assert.equal(runtime.messages.children[1].innerHTML, '');
 });
 
 test('Echo frontend loads public status without credentials', async () => {

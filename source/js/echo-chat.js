@@ -78,13 +78,45 @@
     if (submitButton) submitButton.disabled = disabled;
   };
 
+  const createMarkdownRenderer = () => {
+    if (
+      typeof globalThis.markdownit !== 'function' ||
+      !globalThis.DOMPurify ||
+      typeof globalThis.DOMPurify.sanitize !== 'function'
+    ) {
+      return null;
+    }
+
+    try {
+      const markdown = globalThis.markdownit({
+        html: false,
+        breaks: true,
+        linkify: true,
+        typographer: false
+      }).disable(['image']);
+
+      return text => globalThis.DOMPurify.sanitize(markdown.render(String(text || '')), {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'blockquote', 'code', 'a'],
+        ALLOWED_ATTR: ['href', 'target', 'rel']
+      });
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const markdownRenderer = createMarkdownRenderer();
+
   const appendMessage = (role, text, modifier) => {
     if (!messages) return null;
     const item = document.createElement('article');
     item.className = modifier
       ? `echo-message echo-message-${role} echo-message-${modifier}`
       : `echo-message echo-message-${role}`;
-    item.textContent = text;
+    if (role === 'assistant' && !modifier && markdownRenderer) {
+      item.innerHTML = markdownRenderer(text);
+    } else {
+      item.textContent = text;
+    }
     messages.append(item);
     return item;
   };

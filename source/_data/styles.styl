@@ -687,6 +687,44 @@ body.has-background-video {
   justify-self: start;
   background: #f8f3ea;
   border: 1px solid rgba(55, 45, 35, .12);
+  white-space: normal;
+}
+
+.echo-message-assistant p {
+  margin: 0 0 .72em;
+}
+
+.echo-message-assistant p:last-child,
+.echo-message-assistant ul:last-child,
+.echo-message-assistant ol:last-child,
+.echo-message-assistant blockquote:last-child {
+  margin-bottom: 0;
+}
+
+.echo-message-assistant ul,
+.echo-message-assistant ol {
+  margin: 0 0 .72em 1.35em;
+  padding: 0;
+}
+
+.echo-message-assistant blockquote {
+  margin: 0 0 .72em;
+  padding-left: .9em;
+  border-left: 2px solid rgba(86, 68, 49, .22);
+  color: #645951;
+}
+
+.echo-message-assistant code {
+  padding: .08em .34em;
+  border-radius: 5px;
+  background: rgba(86, 68, 49, .08);
+  font-size: .92em;
+}
+
+.echo-message-assistant a {
+  color: #5f6f3e;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .echo-message-thinking {
