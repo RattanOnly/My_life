@@ -34,6 +34,8 @@ The Worker runtime needs chat, indexing, and admin authentication secrets or env
 
 `ECHO_CHAT_REASONING_EFFORT` is optional and only accepts `low`, `medium`, or `high`. Use `medium` for the production Echo companion because it balances reply quality, latency, and cost for warm conversational responses.
 
+Production currently sets `ECHO_CHAT_MODEL=gpt-5.6-sol` and `ECHO_CHAT_REASONING_EFFORT=medium` as encrypted Worker secrets. If either override is missing or the reasoning value is invalid, the Worker falls back to `gpt-5.5` with `medium` reasoning.
+
 Do not commit secret values. Store real provider keys and `ADMIN_PASSWORD` in Cloudflare Worker secrets or production deployment configuration only.
 
 ## Cloudflare Pages Build Variables

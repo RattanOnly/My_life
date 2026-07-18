@@ -168,7 +168,7 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
       ECHO_VECTORIZE: vectorize,
       ECHO_CHAT_API_KEY: 'chat-key',
       ECHO_CHAT_BASE_URL: 'https://chat.example.com',
-      ECHO_CHAT_MODEL: 'gpt-5.4-mini',
+      ECHO_CHAT_MODEL: 'gpt-5.6-sol',
       ECHO_EMBEDDING_API_KEY: 'embedding-key',
       ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com',
       ECHO_EMBEDDING_MODEL: 'text-embedding-3-small'
@@ -203,8 +203,8 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
     });
 
     const chatPayload = JSON.parse(fetchStub.calls[1].options.body);
-    assert.equal(chatPayload.model, 'gpt-5.4-mini');
-    assert.equal(chatPayload.reasoning_effort, undefined);
+    assert.equal(chatPayload.model, 'gpt-5.6-sol');
+    assert.equal(chatPayload.reasoning_effort, 'medium');
     assert.equal(fetchStub.calls[1].options.headers.authorization, 'Bearer chat-key');
     assert.match(chatPayload.messages[0].content, /文字里长出来的一点灵魂/);
     assert.match(chatPayload.messages[0].content, /不要在对话里自称 Echo/);
@@ -271,6 +271,9 @@ test('POST /echo-chat uses the Workers AI binding for retrieval when available',
     }]);
     assert.equal(fetchStub.calls.length, 1);
     assert.match(fetchStub.calls[0].url, /\/chat\/completions$/);
+    const chatPayload = JSON.parse(fetchStub.calls[0].options.body);
+    assert.equal(chatPayload.model, 'gpt-5.5');
+    assert.equal(chatPayload.reasoning_effort, 'medium');
     assert.deepEqual(vectorize.calls[0].vector, [0.1, 0.2, 0.3]);
     assert.deepEqual((await response.json()).references, [{
       title: '闭上眼然后深呼吸',
@@ -294,7 +297,7 @@ test('POST /echo-chat sends configured chat reasoning effort when present', asyn
       ECHO_VECTORIZE: vectorize,
       ECHO_CHAT_API_KEY: 'chat-key',
       ECHO_CHAT_BASE_URL: 'https://chat.example.com',
-      ECHO_CHAT_MODEL: 'gpt-5.5',
+      ECHO_CHAT_MODEL: 'gpt-5.6-sol',
       ECHO_CHAT_REASONING_EFFORT: 'medium',
       ECHO_EMBEDDING_API_KEY: 'embedding-key',
       ECHO_EMBEDDING_BASE_URL: 'https://embedding.example.com',
@@ -304,7 +307,7 @@ test('POST /echo-chat sends configured chat reasoning effort when present', asyn
     assert.equal(response.status, 200);
 
     const chatPayload = JSON.parse(fetchStub.calls[1].options.body);
-    assert.equal(chatPayload.model, 'gpt-5.5');
+    assert.equal(chatPayload.model, 'gpt-5.6-sol');
     assert.equal(chatPayload.reasoning_effort, 'medium');
   });
 });

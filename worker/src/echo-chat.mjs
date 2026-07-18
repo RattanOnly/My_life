@@ -10,7 +10,8 @@ import { retrieveEchoFragments } from './echo-retrieval.mjs';
 const MAX_ECHO_MESSAGE_LENGTH = 1000;
 const MAX_ECHO_HISTORY_ITEMS = 6;
 const MAX_ECHO_HISTORY_TEXT_LENGTH = 500;
-const DEFAULT_CHAT_MODEL = 'gpt-5.4-mini';
+const DEFAULT_CHAT_MODEL = 'gpt-5.5';
+const DEFAULT_REASONING_EFFORT = 'medium';
 const ALLOWED_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 const OWNER_PUBLIC_PROFILE = [
   '站长公开资料：',
@@ -230,10 +231,8 @@ async function callChatProvider({
       messages,
       temperature: 0.8
     };
-    const reasoningEffort = readReasoningEffort(env.ECHO_CHAT_REASONING_EFFORT);
-    if (reasoningEffort) {
-      payload.reasoning_effort = reasoningEffort;
-    }
+    payload.reasoning_effort = readReasoningEffort(env.ECHO_CHAT_REASONING_EFFORT)
+      || DEFAULT_REASONING_EFFORT;
 
     response = await fetch(buildProviderUrl(env.ECHO_CHAT_BASE_URL, 'chat/completions'), {
       method: 'POST',
