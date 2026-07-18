@@ -1,4 +1,5 @@
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+const DEFAULT_WORKERS_AI_EMBEDDING_MODEL = '@cf/baai/bge-m3';
 
 function buildProviderUrl(baseUrl, path) {
   let url;
@@ -55,6 +56,26 @@ function assertValidEmbedding(embedding) {
 }
 
 export async function createEmbedding(text, env) {
+  if (env?.AI) {
+    let body;
+    try {
+      body = await env.AI.run(
+        env.ECHO_WORKERS_AI_EMBEDDING_MODEL || DEFAULT_WORKERS_AI_EMBEDDING_MODEL,
+        { text: [text] }
+      );
+    } catch {
+      throw new Error('ECHO_WORKERS_AI_ERROR');
+    }
+
+    const embedding = body?.data?.[0];
+    assertValidEmbedding(embedding);
+
+    return {
+      embedding,
+      promptTokens: 0
+    };
+  }
+
   if (!env?.ECHO_EMBEDDING_API_KEY || !env?.ECHO_EMBEDDING_BASE_URL) {
     throw new Error('ECHO_EMBEDDING_PROVIDER_MISSING');
   }

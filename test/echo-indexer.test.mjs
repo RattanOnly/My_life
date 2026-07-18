@@ -131,6 +131,30 @@ test('rebuildVectorizeIndex skips remote requests without Cloudflare env', async
   assert.equal(fetchStub.calls.length, 0);
 });
 
+test('rebuildVectorizeIndex sends documents to the protected Worker index endpoint', async () => {
+  const fetchStub = createFetchStub((url, options) => {
+    assert.equal(url, 'https://lovezvv.com/echo-index');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.headers.authorization, 'Bearer private-index-token');
+    return jsonResponse({ indexed: 1 });
+  });
+  const documents = [{
+    id: 'now-and-before-0',
+    title: '现在和从前',
+    path: '/2026/07/12/now-and-before/',
+    text: '我开始重新看待现在和从前。',
+    chunkIndex: 0
+  }];
+
+  const result = await rebuildVectorizeIndex(documents, {
+    ECHO_INDEX_URL: 'https://lovezvv.com/echo-index',
+    ECHO_INDEX_TOKEN: 'private-index-token'
+  }, { fetchImpl: fetchStub });
+
+  assert.deepEqual(result, { skipped: false, count: 1 });
+  assert.deepEqual(JSON.parse(fetchStub.calls[0].options.body), { documents });
+});
+
 test('createEmbedding does not duplicate v1 in provider base URLs', async () => {
   const fetchStub = createFetchStub(() => jsonResponse({
     data: [{ embedding: [0.1, 0.2, 0.3] }]

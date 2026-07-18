@@ -7,6 +7,7 @@ const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 const DEFAULT_MAX_CHUNK_LENGTH = 900;
 const DEFAULT_VECTORIZE_INDEX = 'my-life-echo-small';
 const VECTORIZE_API_BASE = 'https://api.cloudflare.com/client/v4';
+const DEFAULT_INDEX_BATCH_SIZE = 10;
 
 export function parsePostFrontMatter(markdown) {
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -259,6 +260,34 @@ function hasCloudflareVectorizeEnv(env = process.env) {
   return Boolean(env?.CLOUDFLARE_ACCOUNT_ID && env?.CLOUDFLARE_API_TOKEN);
 }
 
+function hasWorkerIndexEnv(env = process.env) {
+  return Boolean(env?.ECHO_INDEX_URL && env?.ECHO_INDEX_TOKEN);
+}
+
+async function syncViaWorker(documents, env = process.env, { fetchImpl } = {}) {
+  const fetchFn = resolveFetch(fetchImpl);
+  let count = 0;
+
+  for (let start = 0; start < documents.length; start += DEFAULT_INDEX_BATCH_SIZE) {
+    const batch = documents.slice(start, start + DEFAULT_INDEX_BATCH_SIZE);
+    const response = await fetchFn(env.ECHO_INDEX_URL, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.ECHO_INDEX_TOKEN}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ documents: batch })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || Number(body.indexed) !== batch.length) {
+      throw new Error(body.error || 'ECHO_INDEX_SYNC_FAILED');
+    }
+    count += batch.length;
+  }
+
+  return { skipped: false, count };
+}
+
 function vectorizeIndexName(env = process.env) {
   return env?.ECHO_VECTORIZE_INDEX || DEFAULT_VECTORIZE_INDEX;
 }
@@ -307,6 +336,13 @@ export async function upsertVectorizeVectors(vectors, env = process.env, { fetch
 }
 
 export async function rebuildVectorizeIndex(documents, env = process.env, { fetchImpl } = {}) {
+  if (env?.ECHO_INDEX_URL || env?.ECHO_INDEX_TOKEN) {
+    if (!hasWorkerIndexEnv(env)) {
+      throw new Error('ECHO_INDEX_ENDPOINT_MISSING');
+    }
+    return syncViaWorker(documents, env, { fetchImpl });
+  }
+
   if (!hasCloudflareVectorizeEnv(env)) {
     console.log('Skipping remote Vectorize rebuild because CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN is not set.');
     return { skipped: true, count: documents.length };
@@ -321,7 +357,7 @@ export async function rebuildVectorizeIndex(documents, env = process.env, { fetc
 async function main() {
   const documents = await buildEchoDocuments(process.cwd());
   console.log(`Prepared ${documents.length} Echo documents for ECHO_VECTORIZE.`);
-  console.log('Default embedding model:', process.env.ECHO_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL);
+  console.log('Embedding model: @cf/baai/bge-m3 (via protected Worker endpoint).');
 
   if (process.env.ECHO_INDEX_DRY_RUN === '1') {
     return;

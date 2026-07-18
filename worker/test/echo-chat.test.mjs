@@ -63,7 +63,7 @@ function jsonResponse(body, init = {}) {
   });
 }
 
-function createVectorize() {
+function createVectorize(matches) {
   const calls = [];
 
   return {
@@ -71,7 +71,7 @@ function createVectorize() {
     async query(vector, options) {
       calls.push({ vector, options });
       return {
-        matches: [{
+        matches: matches || [{
           id: 'post-a-0',
           score: 0.91,
           metadata: {
@@ -81,6 +81,18 @@ function createVectorize() {
           }
         }]
       };
+    }
+  };
+}
+
+function createWorkersAi(embedding = [0.1, 0.2, 0.3]) {
+  const calls = [];
+
+  return {
+    calls,
+    async run(model, input) {
+      calls.push({ model, input });
+      return { data: [embedding] };
     }
   };
 }
@@ -218,6 +230,52 @@ test('POST /echo-chat returns a writing-grounded reply and records no-content us
     assert.ok(!usageCall.values.includes('我最近有点迷茫'));
     assert.ok(!usageCall.values.includes('我想，他大概会先听你慢慢说完。'));
     assert.ok(!usageCall.values.includes('你可以慢慢说。'));
+  });
+});
+
+test('POST /echo-chat uses the Workers AI binding for retrieval when available', async () => {
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const duplicateMatch = {
+    id: 'latest-0',
+    score: 0.95,
+    metadata: {
+      title: '闭上眼然后深呼吸',
+      path: '/2026/07/17/close-your-eyes-and-breathe/',
+      text: '第一段'
+    }
+  };
+  const vectorize = createVectorize([
+    duplicateMatch,
+    { ...duplicateMatch, id: 'latest-1', metadata: { ...duplicateMatch.metadata, text: '第二段' } }
+  ]);
+  const ai = createWorkersAi();
+  const fetchStub = createFetchStub();
+
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://visitor.example.com/echo-chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '你写过害怕失去从前吗？' })
+    }), {
+      VISITOR_DB: db,
+      AI: ai,
+      ECHO_VECTORIZE: vectorize,
+      ECHO_CHAT_API_KEY: 'chat-key',
+      ECHO_CHAT_BASE_URL: 'https://chat.example.com'
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(ai.calls, [{
+      model: '@cf/baai/bge-m3',
+      input: { text: ['你写过害怕失去从前吗？'] }
+    }]);
+    assert.equal(fetchStub.calls.length, 1);
+    assert.match(fetchStub.calls[0].url, /\/chat\/completions$/);
+    assert.deepEqual(vectorize.calls[0].vector, [0.1, 0.2, 0.3]);
+    assert.deepEqual((await response.json()).references, [{
+      title: '闭上眼然后深呼吸',
+      path: '/2026/07/17/close-your-eyes-and-breathe/'
+    }]);
   });
 });
 

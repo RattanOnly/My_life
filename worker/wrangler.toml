@@ -40,6 +40,10 @@ pattern = "lovezvv.com/echo-chat"
 zone_name = "lovezvv.com"
 
 [[routes]]
+pattern = "lovezvv.com/echo-index"
+zone_name = "lovezvv.com"
+
+[[routes]]
 pattern = "lovezvv.com/echo-status"
 zone_name = "lovezvv.com"
 
@@ -88,6 +92,10 @@ pattern = "www.lovezvv.com/echo-chat"
 zone_name = "lovezvv.com"
 
 [[routes]]
+pattern = "www.lovezvv.com/echo-index"
+zone_name = "lovezvv.com"
+
+[[routes]]
 pattern = "www.lovezvv.com/echo-status"
 zone_name = "lovezvv.com"
 
@@ -110,4 +118,7 @@ migrations_dir = "migrations"
 
 [[vectorize]]
 binding = "ECHO_VECTORIZE"
-index_name = "my-life-echo-small"
+index_name = "my-life-echo-bge-m3"
+
+[ai]
+binding = "AI"

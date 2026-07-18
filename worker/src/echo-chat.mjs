@@ -41,6 +41,7 @@ const SAFE_ECHO_ERROR_CODES = new Set([
   'ECHO_EMBEDDING_PROVIDER_MISSING',
   'ECHO_PROVIDER_BASE_URL_INVALID',
   'ECHO_PROVIDER_NETWORK_ERROR',
+  'ECHO_WORKERS_AI_ERROR',
   'ECHO_REPLY_EMPTY'
 ]);
 
@@ -295,6 +296,23 @@ function safeEchoErrorCode(error) {
   return SAFE_ECHO_ERROR_CODES.has(code) ? code : 'ECHO_UNKNOWN_ERROR';
 }
 
+function buildReferences(fragments) {
+  const seen = new Set();
+  const references = [];
+
+  for (const fragment of fragments) {
+    const title = String(fragment?.title || '');
+    const path = String(fragment?.path || '');
+    if (!title || !path || seen.has(path)) continue;
+
+    seen.add(path);
+    references.push({ title, path });
+    if (references.length === 2) break;
+  }
+
+  return references;
+}
+
 export async function handleEchoChat(request, env, requireVisitorDb) {
   const db = requireVisitorDb(env);
   if (!await readEchoEnabled(db)) {
@@ -351,12 +369,7 @@ export async function handleEchoChat(request, env, requireVisitorDb) {
 
     return json({
       reply: result.reply,
-      references: fragments.slice(0, 2)
-        .map(fragment => ({
-          title: fragment.title,
-          path: fragment.path
-        }))
-        .filter(reference => reference.title && reference.path)
+      references: buildReferences(fragments)
     });
   } catch (error) {
     await safeRecordEchoUsage(db, {

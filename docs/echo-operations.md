@@ -7,32 +7,29 @@ Echo is the public AI conversation page for the blog. The page is backed by the 
 Echo uses the existing Cloudflare-only hosting shape:
 
 - D1 binding: `VISITOR_DB`
+- Workers AI binding: `AI`
 - Cloudflare Vectorize binding: `ECHO_VECTORIZE`
-- Vectorize index: `my-life-echo-small`
-- Vector dimension: `1536`
-- Embedding model: `text-embedding-3-small`
+- Vectorize index: `my-life-echo-bge-m3`
+- Vector dimension: `1024`
+- Embedding model: `@cf/baai/bge-m3`
 
 Create the first Vectorize index with:
 
 ```bash
-wrangler vectorize create my-life-echo-small --dimensions=1536 --metric=cosine
+wrangler vectorize create my-life-echo-bge-m3 --dimensions=1024 --metric=cosine
 ```
 
-Keep `worker/wrangler.toml` aligned with the production Cloudflare resources before deploying the Worker sidecar. Cloudflare Vectorize currently rejects 3072-dimensional indexes on this account, so the first deployed Echo index uses the 1536-dimensional `text-embedding-3-small` model.
-
-The default embedding setup is `text-embedding-3-small` with `ECHO_EMBEDDING_DIMENSIONS=1536` for the Pages/Node indexing job. If you switch models, changing environment variables is not enough: keep the Worker embedding model compatible with the Cloudflare Vectorize index, and match or recreate the Vectorize index dimensions so they match the vector length returned by the provider. The indexing job uses `ECHO_EMBEDDING_DIMENSIONS` to validate provider output before upsert and fails before Vectorize upsert when the dimensions do not match.
+Keep `worker/wrangler.toml` aligned with the production Cloudflare resources before deploying the Worker sidecar. Both indexing and visitor retrieval use the same Workers AI model inside Cloudflare. If the embedding model changes, create a new Vectorize index whose dimensions match the new model before changing the production binding.
 
 ## Worker Secrets And Environment Variables
 
-The Worker runtime needs chat, embedding, and admin authentication secrets or environment variables:
+The Worker runtime needs chat, indexing, and admin authentication secrets or environment variables:
 
 - `ECHO_CHAT_API_KEY`
 - `ECHO_CHAT_BASE_URL`
 - `ECHO_CHAT_MODEL`
 - `ECHO_CHAT_REASONING_EFFORT`
-- `ECHO_EMBEDDING_API_KEY`
-- `ECHO_EMBEDDING_BASE_URL`
-- `ECHO_EMBEDDING_MODEL`
+- `ECHO_INDEX_TOKEN`
 - `ADMIN_PASSWORD`
 
 `ECHO_CHAT_REASONING_EFFORT` is optional and only accepts `low`, `medium`, or `high`. Use `medium` for the production Echo companion because it balances reply quality, latency, and cost for warm conversational responses.
@@ -41,25 +38,18 @@ Do not commit secret values. Store real provider keys and `ADMIN_PASSWORD` in Cl
 
 ## Cloudflare Pages Build Variables
 
-Cloudflare Pages builds can refresh the remote Vectorize index after the static build. That indexing job is separate from the Worker runtime and needs both Cloudflare write access and the embedding provider configuration:
+Cloudflare Pages builds refresh the remote Vectorize index after the static build. The build sends published document fragments to a protected Worker endpoint; the Worker performs embedding and Vectorize writes inside Cloudflare. Pages needs only:
 
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_API_TOKEN`
-- `ECHO_VECTORIZE_INDEX`
-- `ECHO_EMBEDDING_API_KEY`
-- `ECHO_EMBEDDING_BASE_URL`
-- `ECHO_EMBEDDING_MODEL`
-- `ECHO_EMBEDDING_DIMENSIONS`
+- `ECHO_INDEX_URL`, set to `https://lovezvv.com/echo-index`
+- `ECHO_INDEX_TOKEN`, matching the Worker secret
 
-`ECHO_EMBEDDING_DIMENSIONS` should stay `1536` for the default `text-embedding-3-small` setup. Setting only the Cloudflare account, token, and index name is not enough for remote indexing because the Pages job must also call the embedding provider before it can upsert vectors.
+The endpoint is not a public browser API. It requires the bearer token and accepts bounded batches only. Index refresh has three distinct outcomes:
 
-`CLOUDFLARE_API_TOKEN` must be scoped narrowly enough for the build job, but it must be able to update the Cloudflare Vectorize index. Index refresh has three distinct outcomes:
+- Dry run (`ECHO_INDEX_DRY_RUN=1`) extracts documents only, with no Worker or Vectorize calls.
+- Builds missing both endpoint variables skip the remote refresh.
+- Builds with only one endpoint variable, invalid authentication, or a failed embedding/upsert fail the build instead of silently publishing a stale index.
 
-- Dry run (`ECHO_INDEX_DRY_RUN=1`) extracts documents only, with no embedding provider calls and no Vectorize calls.
-- Builds missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN skip the remote Vectorize rebuild.
-- Builds with Cloudflare account/token present but incomplete embedding provider environment, or provider dimensions that do not match `ECHO_EMBEDDING_DIMENSIONS`, fail before Vectorize upsert.
-
-Production-scoped environment variables are safer. Preview builds that receive the same variables can mutate the shared `my-life-echo-small` index, so avoid exposing the production indexing token to preview contexts unless that is intentional.
+Production-scoped environment variables are safer. Preview builds that receive the same variables can mutate the shared `my-life-echo-bge-m3` index, so avoid exposing the production indexing token to preview contexts unless that is intentional.
 
 ## Index Refresh
 

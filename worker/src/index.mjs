@@ -6,6 +6,7 @@ import {
   writeEchoEnabled
 } from './echo-utils.mjs';
 import { handleEchoChat } from './echo-chat.mjs';
+import { handleEchoIndex } from './echo-index.mjs';
 
 const json = (body, init = {}) => new Response(JSON.stringify(body), {
   ...init,
@@ -910,6 +911,10 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/echo-chat') {
       return withPublicCors(await handleEchoChat(request, env, requireVisitorDb), request);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/echo-index') {
+      return handleEchoIndex(request, env);
     }
 
     if (request.method === 'GET' && url.pathname === '/admin-data') {

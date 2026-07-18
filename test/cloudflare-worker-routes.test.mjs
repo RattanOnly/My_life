@@ -12,6 +12,7 @@ const routePatterns = [
   'lovezvv.com/admin-owner-ip-marks*',
   'lovezvv.com/admin-visits',
   'lovezvv.com/echo-chat',
+  'lovezvv.com/echo-index',
   'lovezvv.com/echo-status',
   'lovezvv.com/admin-echo',
   'lovezvv.com/admin-echo-usage',
@@ -24,6 +25,7 @@ const routePatterns = [
   'www.lovezvv.com/admin-owner-ip-marks*',
   'www.lovezvv.com/admin-visits',
   'www.lovezvv.com/echo-chat',
+  'www.lovezvv.com/echo-index',
   'www.lovezvv.com/echo-status',
   'www.lovezvv.com/admin-echo',
   'www.lovezvv.com/admin-echo-usage'
@@ -39,7 +41,8 @@ test('Cloudflare Worker Routes own Visitor state API paths on production domains
   const zoneNameCount = (config.match(/zone_name\s*=\s*"lovezvv\.com"/g) || []).length;
   assert.equal(zoneNameCount, routePatterns.length);
   assert.match(config, /binding\s*=\s*"ECHO_VECTORIZE"/);
-  assert.match(config, /index_name\s*=\s*"my-life-echo-small"/);
+  assert.match(config, /index_name\s*=\s*"my-life-echo-bge-m3"/);
+  assert.match(config, /\[ai\]\s*\nbinding\s*=\s*"AI"/);
   assert.doesNotMatch(config, /netlify/i);
 });
 
