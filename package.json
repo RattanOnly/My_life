@@ -20,7 +20,7 @@
     "version": "8.1.2"
   },
   "dependencies": {
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.12",
     "hexo": "^8.1.2",
     "hexo-algoliasearch": "^2.0.1",
     "hexo-generator-archive": "^2.0.0",
