@@ -6,6 +6,8 @@ tags:
   - 随想
 categories:
   - 日常
+musicList:
+  - url: https://assets.lovezvv.com/blog/music/blog-wind-soft-light.mp3
 commentPathAliases:
   - /2026/06/22/风/
 ---
@@ -81,6 +83,8 @@ commentPathAliases:
 她有些体力不支。我回过头，握住了她的左手，牵着她一起往房子里跑。
 
 老房子里很温暖。房子的书架上放着许多起了褶子的旧漫画书。
+
+![雨中的老房子](https://assets.lovezvv.com/blog/images/blog-wind-house-reading.webp)
 
 她好像对刚刚发生的一切有些不知所措，随手拿起一本漫画书，把脸埋进了书里。
 
