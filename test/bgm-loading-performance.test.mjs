@@ -59,6 +59,6 @@ test('unused local media assets are removed after the R2 migration', async () =>
   await shouldNotExist('../source/music/Chrismas.mp3');
   await shouldNotExist('../source/video/Christmas.mp4');
 
-  await access(new URL('../source/images/Resource/Avatar.png', import.meta.url), constants.F_OK);
+  await access(new URL('../source/images/Resource/Avatar.webp', import.meta.url), constants.F_OK);
   await access(new URL('../source/images/Resource/favicon.ico', import.meta.url), constants.F_OK);
 });
