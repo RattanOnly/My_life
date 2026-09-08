@@ -7,7 +7,7 @@ tags:
 categories:
   - 灵魂
 musicList:
-  - url: https://assets.lovezvv.com/blog/music/blog-flipped-october-love.mp3
+  - url: https://assets.lovezvv.com/blog/music/blog-flipped-music-one.mp3
 ---
 
 ![我们](https://assets.lovezvv.com/blog/images/blog-flipped-us.webp)
@@ -35,3 +35,29 @@ musicList:
 ![我们的回忆](https://assets.lovezvv.com/blog/images/blog-flipped-ring.webp)
 
 <p align="right">2026.08.31<br>永远爱你的vv</p>
+
+---
+
+**PS**
+
+相遇已是上上签
+
+生活中的每一次巧合，每一次与你心跳同频的瞬间，都让我一次又一次地坚信，你就是那个上天派来拯救我的人。我一直记得那天你看着我，满眼都是我的模样。每次想起那个瞬间，我都会忍不住热泪盈眶。也是从那一刻起，我忽然明白，你会是那个陪我一起走很远很远的路的人。汤汤，你真可爱爱爱爱爱爱爱爱爱！！！心动的时候来不及思考，认真思考过后，我还是想说：汤汤，你真可爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱爱！！！
+
+![她与花](https://assets.lovezvv.com/blog/images/blog-flipped-ps-01-her.webp)
+
+![阳光下的她](https://assets.lovezvv.com/blog/images/blog-flipped-ps-02-hersun.webp)
+
+![抬头看树的她](https://assets.lovezvv.com/blog/images/blog-flipped-ps-03-heronthesun.webp)
+
+![她的目光](https://assets.lovezvv.com/blog/images/blog-flipped-ps-04-herlook.webp)
+
+![她的短发](https://assets.lovezvv.com/blog/images/blog-flipped-ps-05-herhair.webp)
+
+![她的眼睛](https://assets.lovezvv.com/blog/images/blog-flipped-ps-06-hereyes.webp)
+
+![夜晚里的她](https://assets.lovezvv.com/blog/images/blog-flipped-ps-07-heragain.webp)
+
+![傍晚的天空](https://assets.lovezvv.com/blog/images/blog-flipped-ps-08-sunset.webp)
+
+![答案之书](https://assets.lovezvv.com/blog/images/blog-flipped-ps-09-book.webp)
