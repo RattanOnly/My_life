@@ -23,7 +23,7 @@ test('post images are served from the R2 blog image path', async () => {
     }
   }
 
-  assert.equal(r2ImageReferences, 58);
+  assert.equal(r2ImageReferences, 62);
 });
 
 test('article and site music are served from the R2 blog music path', async () => {
