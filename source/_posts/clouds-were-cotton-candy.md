@@ -1,6 +1,7 @@
 ---
 title: 云曾是棉花糖
 date: 2026-10-13 16:44:08
+show_updated: false
 tags:
   - 童年
   - 随想
@@ -22,4 +23,4 @@ musicList:
 
 可每多懂得一点，仿佛就有些什么被悄悄偷走。你发现，云不过是水汽，并不是绵软的糖丝。你明白，埋进土里的秘密，也只会像我们试图藏起的其他东西一样，在那里慢慢腐烂。你终于看见，父母也是凡人，这意味着他们也会受伤，也会碎裂，而你同样如此。你读着新闻，渐渐意识到，这个世界并不温柔，也不公平。无论向星星许下多少愿望，都改变不了这些事实：有人饿着肚子入睡，有人再也没有回家，有些爱情故事还没翻到最后一页就已经结束——因为生活并不在乎故事是否完整，也不在乎结局是否圆满。
 
-![长大后，仍会抬头看云与星光](https://assets.lovezvv.com/blog/images/blog-clouds-were-cotton-candy-growing-up-v2.webp)
+![长大后，仍会抬头看云与星光](https://assets.lovezvv.com/blog/images/blog-clouds-were-cotton-candy-evening-sky.webp)
