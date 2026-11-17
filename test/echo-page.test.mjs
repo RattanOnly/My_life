@@ -249,7 +249,7 @@ test('Echo scripts load globally and are not dependent on PJAX-inserted page scr
   assert.match(footer, /\/vendor\/purify\.min\.js\?v=3\.4\.11/);
   assert.match(footer, /\/js\/echo-character\.js/);
   assert.match(footer, /\/js\/echo-chat\.js\?v=[^"\s]+/);
-  assert.ok(footer.indexOf('/js/echo-letter.js') < footer.indexOf('/js/echo-chat.js'));
+  assert.doesNotMatch(footer, /echo-letter\.js/);
   assert.ok(footer.indexOf('/vendor/markdown-it.min.js') < footer.indexOf('/js/echo-chat.js'));
   assert.ok(footer.indexOf('/vendor/purify.min.js') < footer.indexOf('/js/echo-chat.js'));
 });
@@ -390,7 +390,7 @@ test('Echo frontend posts only active page-session messages and handles disabled
   assert.match(script, /chatEndpoint/);
   assert.match(script, /statusEndpoint/);
   assert.match(script, /fetch\(chatEndpoint/);
-  assert.match(script, /history\.slice\(-6\)/);
+  assert.match(script, /history\.slice\(-24\)/);
   assert.match(script, /我在想一想\.\.\./);
   assert.match(script, /appendMessage\('assistant', '我在想一想\.\.\.', 'thinking'\)/);
   assert.match(script, /这阵回声暂时坐下来休息了/);
@@ -767,4 +767,24 @@ test('Echo character scaling and message text wrapping are resilient', async () 
     styles,
     /\.echo-message\s*\{[\s\S]*overflow-wrap:\s*anywhere[\s\S]*white-space:\s*pre-wrap[\s\S]*min-width:\s*0/
   );
+});
+
+test('Echo keeps recipient messages in ordinary chat and remembers retries in the current conversation', async () => {
+  const runtime = createEchoRuntime({ chatResponses: Array.from({ length: 9 }, (_, i) => ({ reply: `继续聊天 ${i}` })) });
+  await runEchoScript(runtime);
+  for (const text of ['我是佳妮', ...Array.from({ length: 8 }, (_, i) => `我再想想 ${i}`)]) {
+    runtime.textarea.value = text;
+    runtime.form.dispatch('submit');
+    await settleAsyncWork();
+  }
+  const calls = runtime.calls.filter(call => call.url === '/unit-chat');
+  assert.equal(calls.length, 9);
+  assert.equal(JSON.parse(calls[0].options.body).message, '我是佳妮');
+  const latestHistory = JSON.parse(calls.at(-1).options.body).history;
+  assert.equal(latestHistory[0].content, '我是佳妮');
+  assert.equal(latestHistory.length, 16);
+  assert.equal(runtime.textarea.disabled, false);
+  assert.equal(runtime.button.disabled, false);
+  const page = await readFile(new URL('../source/echo/index.md', import.meta.url), 'utf8');
+  assert.doesNotMatch(page, /data-echo-letter/);
 });

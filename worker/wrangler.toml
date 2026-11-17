@@ -40,10 +40,6 @@ pattern = "lovezvv.com/echo-chat"
 zone_name = "lovezvv.com"
 
 [[routes]]
-pattern = "lovezvv.com/echo-letter"
-zone_name = "lovezvv.com"
-
-[[routes]]
 pattern = "lovezvv.com/echo-index"
 zone_name = "lovezvv.com"
 
@@ -93,10 +89,6 @@ zone_name = "lovezvv.com"
 
 [[routes]]
 pattern = "www.lovezvv.com/echo-chat"
-zone_name = "lovezvv.com"
-
-[[routes]]
-pattern = "www.lovezvv.com/echo-letter"
 zone_name = "lovezvv.com"
 
 [[routes]]

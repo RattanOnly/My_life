@@ -6,10 +6,11 @@ import {
   recordEchoUsage
 } from './echo-utils.mjs';
 import { retrieveEchoFragments } from './echo-retrieval.mjs';
+import { buildEchoLetterContext } from './echo-letter-context.mjs';
 
 const MAX_ECHO_MESSAGE_LENGTH = 1000;
-const MAX_ECHO_HISTORY_ITEMS = 6;
-const MAX_ECHO_HISTORY_TEXT_LENGTH = 500;
+const MAX_ECHO_HISTORY_ITEMS = 24;
+const MAX_ECHO_HISTORY_TEXT_LENGTH = 3000;
 const DEFAULT_CHAT_MODEL = 'gpt-5.5';
 const DEFAULT_REASONING_EFFORT = 'medium';
 const ALLOWED_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
@@ -236,7 +237,10 @@ async function callChatProvider({
   }
 
   const messages = [
-    { role: 'system', content: buildSystemPrompt(fragments, { retrievalSkipped, identityTurn, greetingTurn }) },
+    { role: 'system', content: [
+      buildSystemPrompt(fragments, { retrievalSkipped, identityTurn, greetingTurn }),
+      buildEchoLetterContext(env.ECHO_LETTER_DATA)
+    ].filter(Boolean).join('\n\n') },
     ...history,
     { role: 'user', content: message }
   ];
@@ -395,7 +399,7 @@ export async function handleEchoChat(request, env, requireVisitorDb) {
     return json({
       reply: result.reply,
       references: buildReferences(fragments)
-    });
+    }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     await safeRecordEchoUsage(db, {
       status: 'failure',

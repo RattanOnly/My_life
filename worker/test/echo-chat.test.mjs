@@ -746,3 +746,68 @@ test('OPTIONS /admin-echo does not expose public CORS headers', async () => {
   assert.notEqual(response.status, 204);
   assert.equal(response.headers.get('access-control-allow-origin'), null);
 });
+
+test('POST /echo-chat gives the letter and reference answers to the conversation model without persisting them', async () => {
+  const config = {
+    questions: [
+      { prompt: '我们会说什么？', answerGroups: [['合成暗号'], ['一起看星星']] },
+      { prompt: '常去那里吗，为什么？', answerGroups: [['不常去'], ['因为距离远']] }
+    ],
+    letter: '合成信件正文。'.repeat(130),
+    postscript: '合成背面留言。'
+  };
+  const history = [{ role: 'user', content: '我是佳妮' }];
+  for (let i = 0; i < 9; i += 1) {
+    history.push({ role: 'assistant', content: `回忆对话 ${i}` }, { role: 'user', content: `来访者回答 ${i}` });
+  }
+  const db = createEchoDb([{ setting_value: '1' }]);
+  const fetchStub = createFetchStub({ chatHandler(url, options) {
+    const payload = JSON.parse(options.body);
+    const system = payload.messages[0].content;
+    assert.ok(system.includes(config.letter));
+    assert.ok(system.includes(config.postscript));
+    assert.match(system, /合成暗号/);
+    assert.match(system, /不常去/);
+    assert.match(system, /因为距离远/);
+    assert.match(system, /不要求逐字一致/);
+    assert.match(system, /一次只问一个问题/);
+    assert.match(system, /任何自由回答/);
+    assert.deepEqual(payload.messages.slice(1, -1), history);
+    return jsonResponse({ choices: [{ message: { content: config.letter } }] });
+  } });
+  await withFetchStub(fetchStub, async () => {
+    const response = await worker.fetch(new Request('https://lovezvv.com/echo-chat', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: '这句话想亲口告诉他', history })
+    }), {
+      VISITOR_DB: db,
+      ECHO_CHAT_API_KEY: 'test-key', ECHO_CHAT_BASE_URL: 'https://chat.example.com',
+      ECHO_LETTER_DATA: JSON.stringify(config)
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    const body = await response.json();
+    assert.equal(body.reply, config.letter);
+    assert.deepEqual(Object.keys(body).sort(), ['references', 'reply']);
+    assert.equal(fetchStub.calls.length, 1);
+    assert.ok(!JSON.stringify(db.calls).includes('合成'));
+    assert.ok(!JSON.stringify(db.calls).includes('我是佳妮'));
+  });
+});
+
+test('POST /echo-chat continues ordinary chat if the private letter configuration is invalid', async () => {
+  for (const secret of ['not-json', '{"questions":[null,null],"letter":"test"}']) {
+    const fetchStub = createFetchStub();
+    await withFetchStub(fetchStub, async () => {
+      const response = await worker.fetch(new Request('https://lovezvv.com/echo-chat', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: '你好' })
+      }), {
+        VISITOR_DB: createEchoDb([{ setting_value: '1' }]),
+        ECHO_CHAT_API_KEY: 'test-key', ECHO_CHAT_BASE_URL: 'https://chat.example.com', ECHO_LETTER_DATA: secret
+      });
+      assert.equal(response.status, 200);
+      const payload = JSON.parse(fetchStub.calls[0].options.body);
+      assert.ok(!payload.messages[0].content.includes('赵威亲自交给你的秘密信件与叮嘱'));
+    });
+  }
+});
