@@ -23,6 +23,10 @@
   };
   const chatEndpoint = resolveEndpoint(root.dataset.echoChatEndpoint, '/echo-chat');
   const statusEndpoint = resolveEndpoint(root.dataset.echoStatusEndpoint, '/echo-status');
+  const letter = globalThis.EchoLetter?.create({
+    root,
+    endpoint: resolveEndpoint(root.dataset.echoLetterEndpoint, '/echo-letter')
+  });
   const disabledMessage = '这阵回声暂时坐下来休息了。晚一点再来找他吧。';
   const history = [];
   let characterStage = null;
@@ -151,6 +155,14 @@
 
     const text = messageField.value.trim();
     if (!text) return;
+
+    if (letter?.offer(text)) {
+      appendMessage('user', text);
+      messageField.value = '';
+      setStatus('');
+      setStage('reply_ready');
+      return;
+    }
 
     const previousHistory = history.slice(-6);
     appendMessage('user', text);

@@ -99,6 +99,23 @@ Minimum verification after deployment: log in to the admin UI, confirm pause and
 
 Use the admin controls for temporary provider outages, unexpected cost spikes, abuse monitoring, or maintenance windows.
 
+## Hidden Letter
+
+Echo 的藏信支线由 `/echo-letter` 独立处理。来访者在聊天中主动表明收信人身份，或询问赵威留下的信时，前端展示邀请；普通聊天继续使用原有接口。
+
+生产 Worker 需要两个额外的加密 secrets：
+
+- `ECHO_LETTER_DATA`：JSON 对象，包含两个校验问题 `questions`、完整信件 `letter` 和背面留言 `postscript`。每个问题包含 `prompt` 和 `answerGroups`；每组至少命中一个可接受短语，所有组均命中才通过。更换答案时检查正常表达及容易混淆的表达。
+- `ECHO_LETTER_SECRET`：随机签名密钥，用于签发有效期一小时的分步凭证。更换密钥会使尚未完成的凭证失效。
+
+真实答案和信件不应提交到公开仓库、静态构建产物或 Echo 检索索引。自动测试只使用虚构内容。更新 secrets 可使用 `wrangler secret put --config worker/wrangler.toml`，通过标准输入提供内容。
+
+前两题由服务端逐题校验，答错可以重试；全部通过后才允许取信。第三题是自由表达，可以跳过，不参与服务端校验。其文字只短暂存在于当前输入框，继续或离开时清除，不发往服务端、聊天模型或持久化存储。
+
+所有藏信接口响应均带 `Cache-Control: no-store`。问题回答不写入 D1、运行日志或 AI 用量记录。来访者返回聊天或刷新页面后，需要重新走完流程。
+
+上线检查应覆盖：错误答案重试、第二题缺少原因、未完成及篡改凭证拒绝取信、第三题填写和跳过、拆信与背面留言、返回聊天，以及手机窄屏。
+
 ## Known Limitation And Follow-Up
 
 Obsolete vectors are not currently reconciled. Future cleanup should use a safe manifest-based process that identifies stale vector IDs after a successful upsert. Never delete all vectors before a successful replacement upsert has completed.

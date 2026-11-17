@@ -7,6 +7,7 @@ import {
 } from './echo-utils.mjs';
 import { handleEchoChat } from './echo-chat.mjs';
 import { handleEchoIndex } from './echo-index.mjs';
+import { handleEchoLetter } from './echo-letter.mjs';
 
 const json = (body, init = {}) => new Response(JSON.stringify(body), {
   ...init,
@@ -31,7 +32,7 @@ const DEFAULT_COMMENT_PAGE_SIZE = 20;
 const MAX_COMMENT_PAGE_SIZE = 100;
 const COMMENT_DELETION_WINDOW_MINUTES = 10;
 const COMMENT_DELETE_TOKEN_BYTES = 24;
-const PUBLIC_CORS_PATHS = new Set(['/visits', '/presence', '/online-count', '/comments', '/echo-status', '/echo-chat']);
+const PUBLIC_CORS_PATHS = new Set(['/visits', '/presence', '/online-count', '/comments', '/echo-status', '/echo-chat', '/echo-letter']);
 const PUBLIC_CORS_ORIGINS = new Set([
   'https://lovezvv.com',
   'https://www.lovezvv.com',
@@ -915,6 +916,10 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/echo-index') {
       return handleEchoIndex(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/echo-letter') {
+      return withPublicCors(await handleEchoLetter(request, env), request);
     }
 
     if (request.method === 'GET' && url.pathname === '/admin-data') {

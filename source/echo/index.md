@@ -11,6 +11,7 @@ id="echo-page"
 class="echo-page"
 data-echo-chat-endpoint="/echo-chat"
 data-echo-status-endpoint="/echo-status"
+data-echo-letter-endpoint="/echo-letter"
 data-echo-stage="idle"
 data-page-bgm='[{"url":"https://assets.lovezvv.com/blog/music/blog-echo-echo.mp3"}]'
 >
@@ -42,5 +43,6 @@ decoding="async"
 <button type="submit" class="ui-button" data-echo-submit>发送</button>
 </div>
 </form>
+<section class="echo-letter" data-echo-letter aria-label="一封藏在这里的信" hidden></section>
 </div>
 </section>

@@ -248,7 +248,8 @@ test('Echo scripts load globally and are not dependent on PJAX-inserted page scr
   assert.match(footer, /\/vendor\/markdown-it\.min\.js/);
   assert.match(footer, /\/vendor\/purify\.min\.js\?v=3\.4\.11/);
   assert.match(footer, /\/js\/echo-character\.js/);
-  assert.match(footer, /\/js\/echo-chat\.js\?v=20260709-markdown-render/);
+  assert.match(footer, /\/js\/echo-chat\.js\?v=[^"\s]+/);
+  assert.ok(footer.indexOf('/js/echo-letter.js') < footer.indexOf('/js/echo-chat.js'));
   assert.ok(footer.indexOf('/vendor/markdown-it.min.js') < footer.indexOf('/js/echo-chat.js'));
   assert.ok(footer.indexOf('/vendor/purify.min.js') < footer.indexOf('/js/echo-chat.js'));
 });
